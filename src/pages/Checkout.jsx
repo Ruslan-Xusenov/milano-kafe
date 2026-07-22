@@ -4,7 +4,7 @@ import { ArrowLeft, Trash2, Plus, Minus, CheckCircle, ShoppingCart, MapPin, Phon
 import { CartContext } from '../context/CartContext';
 
 const Checkout = () => {
-  const { cartItems, updateQuantity, removeFromCart, getTotal, clearCart, user, address } = useContext(CartContext);
+  const { cartItems, updateQuantity, removeFromCart, getTotal, clearCart, user, updateUser, address } = useContext(CartContext);
   const navigate = useNavigate();
   
   const [name, setName] = useState('');
@@ -54,12 +54,25 @@ const Checkout = () => {
             quantity: item.quantity
           })),
           total: totalAmount,
-          address: address || 'Kiritilmagan'
+          address: address || 'Kiritilmagan',
+          user_id: user?.isLoggedIn ? user?.id : null
         })
       });
 
       if (!response.ok) {
         throw new Error('Server xatosi, qaytadan urinib ko\'ring');
+      }
+
+      // Refresh user balance if logged in
+      if (user?.isLoggedIn && user?.id) {
+        fetch('/api/auth/client/me/' + user.id)
+          .then(res => res.json())
+          .then(data => {
+            if (data && updateUser) {
+              updateUser(data);
+            }
+          })
+          .catch(err => console.error(err));
       }
 
       setIsSuccess(true);

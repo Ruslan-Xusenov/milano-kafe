@@ -35,31 +35,63 @@ app.get('/api/orders', (req, res) => {
 
 // Yangi buyurtma yaratish
 app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, items, total, address, user_id } = req.body;
+  const { customer_name, phone, items, total, address, user_id, cashback_used } = req.body;
   const itemsJson = JSON.stringify(items);
+  let usedAmount = parseInt(cashback_used) || 0;
   
-  const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id) VALUES (?, ?, ?, ?, 'new', ?, ?)`;
-  db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    
-    const newOrder = {
-      id: this.lastID,
-      customer_name,
-      phone,
-      items,
-      total,
-      address: address || 'Kiritilmagan',
-      status: 'new',
-      user_id
-    };
-    
-    // Telegramga xabar yuborish
-    sendOrderToTelegram(newOrder);
-    
-    res.status(201).json(newOrder);
-  });
+  const insertOrder = (earned, used) => {
+    const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?)`;
+    db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null, used, earned], function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      const newOrder = {
+        id: this.lastID,
+        customer_name,
+        phone,
+        items,
+        total,
+        address: address || 'Kiritilmagan',
+        status: 'new',
+        user_id,
+        cashback_used: used,
+        cashback_earned: earned
+      };
+      
+      // Telegramga xabar yuborish
+      sendOrderToTelegram(newOrder);
+      res.status(201).json(newOrder);
+    });
+  };
+
+  if (user_id) {
+    db.get("SELECT cashback_balance FROM users WHERE id = ?", [user_id], (err, user) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!user) return insertOrder(0, 0);
+
+      const maxUsable = Math.floor(total / 2);
+      if (usedAmount > user.cashback_balance || usedAmount > maxUsable) {
+         usedAmount = Math.min(user.cashback_balance || 0, maxUsable);
+      }
+
+      let earnedAmount = 0;
+      // Keshbek endi to'langan summa (total - usedAmount) asosida beriladi
+      const paidAmount = total - usedAmount;
+      if (paidAmount > 0) {
+        if (paidAmount >= 999000) earnedAmount = Math.floor(paidAmount * 0.06);
+        else if (paidAmount >= 599000) earnedAmount = Math.floor(paidAmount * 0.05);
+        else if (paidAmount >= 299000) earnedAmount = Math.floor(paidAmount * 0.04);
+        else if (paidAmount >= 99000) earnedAmount = Math.floor(paidAmount * 0.03);
+        else earnedAmount = Math.floor(paidAmount * 0.02); // 99,000 dan kam bo'lsa 2% keshbek
+      }
+
+      db.run("UPDATE users SET cashback_balance = cashback_balance - ? + ? WHERE id = ?", [usedAmount, earnedAmount, user_id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        insertOrder(earnedAmount, usedAmount);
+      });
+    });
+  } else {
+    insertOrder(0, 0);
+  }
 });
 
 // Foydalanuvchining o'z buyurtmalarini olish
@@ -578,6 +610,14 @@ app.put('/api/auth/client/update', (req, res) => {
       const { password: _, ...userData } = user;
       res.json(userData);
     });
+  });
+});
+app.get('/api/auth/client/me/:id', (req, res) => {
+  db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
+    const { password: _, ...userData } = user;
+    res.json(userData);
   });
 });
 

@@ -50,6 +50,14 @@ export const CartProvider = ({ children }) => {
     setUser({ isLoggedIn: false, phone: '+998', name: '', email: '' });
   };
 
+  const updateUser = (userData) => {
+    setUser(prev => {
+      const updated = { ...prev, ...userData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   const addToCart = (product) => {
     setCartItems(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -81,7 +89,7 @@ export const CartProvider = ({ children }) => {
   return (
     <CartContext.Provider value={{ 
       cartItems, addToCart, removeFromCart, updateQuantity, clearCart, getTotal,
-      user, login, logout,
+      user, login, updateUser, logout,
       address, updateAddress
     }}>
       {children}

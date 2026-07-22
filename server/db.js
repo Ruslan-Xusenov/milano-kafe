@@ -16,6 +16,10 @@ const db = new sqlite3.Database(dbPath, (err) => {
       status TEXT DEFAULT 'new',
       address TEXT,
       printed INTEGER DEFAULT 0,
+      user_id INTEGER,
+      is_rated INTEGER DEFAULT 0,
+      cashback_used INTEGER DEFAULT 0,
+      cashback_earned INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
@@ -28,6 +32,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
       google_id TEXT,
       telegram_id TEXT,
       role TEXT DEFAULT 'client',
+      cashback_balance INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
@@ -46,6 +51,17 @@ const db = new sqlite3.Database(dbPath, (err) => {
     // Add is_rated to orders table if it doesn't exist
     db.run(`ALTER TABLE orders ADD COLUMN is_rated INTEGER DEFAULT 0`, (err) => {
       if (!err) console.log('Added is_rated column to orders table.');
+    });
+
+    // Add cashback columns
+    db.run(`ALTER TABLE users ADD COLUMN cashback_balance INTEGER DEFAULT 0`, (err) => {
+      if (!err) console.log('Added cashback_balance column to users table.');
+    });
+    db.run(`ALTER TABLE orders ADD COLUMN cashback_used INTEGER DEFAULT 0`, (err) => {
+      if (!err) console.log('Added cashback_used column to orders table.');
+    });
+    db.run(`ALTER TABLE orders ADD COLUMN cashback_earned INTEGER DEFAULT 0`, (err) => {
+      if (!err) console.log('Added cashback_earned column to orders table.');
     });
   }
 });

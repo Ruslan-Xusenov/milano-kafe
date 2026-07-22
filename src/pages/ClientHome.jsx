@@ -4,16 +4,20 @@ import {
   ShoppingCart, Search, MapPin, User, ChevronRight,
   Menu as MenuIcon, Heart, Percent, Utensils, Coffee,
   Apple, Milk, Croissant, Droplets, Candy, Beef, Snowflake,
-  Plus, Minus, Trash2, Home, List, X, Info
+  Plus, Minus, Trash2, Home, List, X, Info, Star, Edit3, Save, LogOut
 } from 'lucide-react';
 import { CartContext } from '../context/CartContext';
 import ProductModal from '../components/ProductModal';
 
 const ClientHome = () => {
-  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotal, user, login, address, updateAddress } = useContext(CartContext);
+  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotal, user, login, updateUser, logout, address, updateAddress } = useContext(CartContext);
   const navigate = useNavigate();
   const [isLocating, setIsLocating] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(0);
+
+  const formatNumber = (num) => {
+    return Number(num || 0).toLocaleString('uz-UZ');
+  };
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
@@ -25,6 +29,112 @@ const ClientHome = () => {
   const [banners, setBanners] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  // Profile Modal & Tabs
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState('profil'); // 'profil' | 'buyurtmalar'
+  const [userOrders, setUserOrders] = useState([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileFormData, setProfileFormData] = useState({ name: '', phone: '', email: '' });
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState('');
+  const [profileSaveError, setProfileSaveError] = useState('');
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
+
+  // Rating Modal state
+  const [ratingOrder, setRatingOrder] = useState(null);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingComment, setRatingComment] = useState('');
+  const [isRatingSubmitting, setIsRatingSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user?.isLoggedIn) {
+      setProfileFormData({
+        name: user.name || '',
+        phone: user.phone || '+998',
+        email: user.email || ''
+      });
+      fetchUserOrders();
+    }
+  }, [user?.id, user?.isLoggedIn]);
+
+  const fetchUserOrders = async () => {
+    if (!user?.id) return;
+    setIsLoadingOrders(true);
+    try {
+      const res = await fetch(`/api/orders/user/${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setUserOrders(data);
+      }
+    } catch (e) {
+      console.error('Buyurtmalarni yuklashda xatolik:', e);
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setProfileSaveError('');
+    setProfileSaveSuccess('');
+    setIsProfileSaving(true);
+    try {
+      const res = await fetch('/api/auth/client/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user.id,
+          name: profileFormData.name,
+          phone: profileFormData.phone,
+          email: profileFormData.email
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Saqlashda xatolik yuz berdi');
+      updateUser(data);
+      setIsEditingProfile(false);
+      setProfileSaveSuccess('Ma\'lumotlar muvaffaqiyatli saqlandi!');
+      setTimeout(() => setProfileSaveSuccess(''), 3000);
+    } catch (err) {
+      setProfileSaveError(err.message);
+    } finally {
+      setIsProfileSaving(false);
+    }
+  };
+
+  const submitRating = async () => {
+    if (!ratingOrder || ratingScore === 0) return;
+    setIsRatingSubmitting(true);
+    try {
+      const res = await fetch(`/api/orders/${ratingOrder.id}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rating: ratingScore,
+          comment: ratingComment
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Baholashda xatolik yuz berdi');
+      setRatingOrder(null);
+      fetchUserOrders();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsRatingSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'new': return { bg: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Yangi' };
+      case 'preparing': return { bg: 'bg-blue-100 text-blue-800 border-blue-200', label: 'Tayyorlanmoqda' };
+      case 'delivering': return { bg: 'bg-pink-100 text-pink-800 border-pink-200', label: 'Yetkazilmoqda' };
+      case 'completed': return { bg: 'bg-emerald-100 text-emerald-800 border-emerald-200', label: 'Bajarildi' };
+      default: return { bg: 'bg-gray-100 text-gray-800 border-gray-200', label: 'Noma\'lum' };
+    }
+  };
 
   const handleAuth = async (e) => {
     e.preventDefault();
@@ -178,11 +288,14 @@ const ClientHome = () => {
                 Tizimga kirish
               </button>
             ) : (
-              <button className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white border border-[#A79277]/20 hover:bg-[#FFF2E1]/50 hover:shadow-sm transition-all font-semibold text-sm">
+              <button
+                onClick={() => setIsProfileModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-white border border-[#A79277]/20 hover:bg-[#FFF2E1]/50 hover:shadow-sm transition-all font-semibold text-sm cursor-pointer"
+              >
                 <div className="w-7 h-7 bg-gradient-to-br from-[#FF4747] to-[#FF4747]/80 rounded-full flex items-center justify-center text-[11px] font-bold text-[#FFF2E1]">
                   <User size={14} />
                 </div>
-                <span className="truncate max-w-[80px] sm:max-w-[120px] text-[#A79277]">{user.phone}</span>
+                <span className="truncate max-w-[80px] sm:max-w-[120px] text-[#A79277]">{user.name || user.phone}</span>
               </button>
             )}
           </div>
@@ -338,7 +451,7 @@ const ClientHome = () => {
 
                       <div className="mt-auto flex items-center justify-between pt-4">
                         <span className="text-xl font-extrabold text-[#FF4747]">
-                          {item.price.toLocaleString()} <span className="text-sm font-semibold text-[#A79277]">so'm</span>
+                          {formatNumber(item.price)} <span className="text-sm font-semibold text-[#A79277]">so'm</span>
                         </span>
 
                         {qty === 0 ? (
@@ -420,7 +533,7 @@ const ClientHome = () => {
                       </button>
                     </div>
                     <div className="flex justify-between items-end mt-2">
-                      <span className="font-extrabold text-[#FF4747]">{(item.price * item.quantity).toLocaleString()} <span className="text-xs text-[#A79277] font-medium">so'm</span></span>
+                      <span className="font-extrabold text-[#FF4747]">{formatNumber(item.price * item.quantity)} <span className="text-xs text-[#A79277] font-medium">so'm</span></span>
 
                       <div className="flex items-center gap-2 bg-[#FFF2E1]/50 rounded-xl p-1 border border-[#A79277]/10">
                         <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm text-[#A79277] transition-all">
@@ -443,7 +556,7 @@ const ClientHome = () => {
         <div className="p-6 bg-white border-t border-[#A79277]/10 shadow-[0_-10px_20px_-10px_rgba(167,146,119,0.05)]">
           <div className="flex justify-between items-center mb-6">
             <span className="text-[#A79277]/80 font-medium">Jami summa:</span>
-            <span className="text-2xl font-extrabold text-[#FF4747]">{totalAmount.toLocaleString()} so'm</span>
+            <span className="text-2xl font-extrabold text-[#FF4747]">{formatNumber(totalAmount)} so'm</span>
           </div>
           {cartItems.length === 0 ? (
             <button className="w-full bg-[#FFF2E1] text-[#A79277]/50 font-bold py-4 rounded-2xl cursor-not-allowed">
@@ -473,7 +586,7 @@ const ClientHome = () => {
               </div>
               <span className="text-lg">Savatga o'tish</span>
             </div>
-            <span className="text-lg">{totalAmount.toLocaleString()} so'm</span>
+            <span className="text-lg">{formatNumber(totalAmount)} so'm</span>
           </button>
         </div>
       )}
@@ -515,7 +628,7 @@ const ClientHome = () => {
         <button
           onClick={() => {
             if (user.isLoggedIn) {
-              navigate('/admin');
+              setIsProfileModalOpen(true);
             } else {
               setIsLoginModalOpen(true);
             }
@@ -633,6 +746,310 @@ const ClientHome = () => {
                 className="text-[#A79277] font-semibold hover:text-[#FF4747] transition-colors"
               >
                 {authMode === 'login' ? 'Akkauntingiz yo\'qmi? Ro\'yxatdan o\'ting' : 'Akkauntingiz bormi? Tizimga kiring'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Client Profile Modal */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 bg-[#A79277]/60 backdrop-blur-md z-[100] flex items-center justify-center p-4" onClick={() => setIsProfileModalOpen(false)}>
+          <div className="bg-[#FFF2E1] rounded-[2rem] w-full max-w-lg max-h-[90vh] flex flex-col relative shadow-2xl overflow-hidden border border-[#A79277]/20" onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Header */}
+            <div className="p-6 pb-4 border-b border-[#A79277]/10 flex items-center justify-between bg-white/80">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-[#F7E998] border-2 border-[#A79277]/30 flex items-center justify-center text-lg font-black text-[#A79277]">
+                  {user?.name ? user.name[0].toUpperCase() : 'M'}
+                </div>
+                <div>
+                  <h3 className="text-xl font-extrabold text-[#A79277]">{user?.name || 'Mijoz'}</h3>
+                  <p className="text-xs font-semibold text-[#A79277]/70">{user?.phone}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsProfileModalOpen(false)}
+                className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-[#F7E998] text-[#A79277] rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Profile Tabs */}
+            <div className="flex border-b border-[#A79277]/10 bg-white">
+              <button
+                onClick={() => setActiveProfileTab('profil')}
+                className={`flex-1 py-3 font-bold text-sm text-center border-b-2 transition-all ${
+                  activeProfileTab === 'profil'
+                    ? 'border-[#FF4747] text-[#FF4747]'
+                    : 'border-transparent text-[#A79277]/60 hover:text-[#A79277]'
+                }`}
+              >
+                Ma'lumotlarim
+              </button>
+              <button
+                onClick={() => {
+                  setActiveProfileTab('buyurtmalar');
+                  fetchUserOrders();
+                }}
+                className={`flex-1 py-3 font-bold text-sm text-center border-b-2 transition-all ${
+                  activeProfileTab === 'buyurtmalar'
+                    ? 'border-[#FF4747] text-[#FF4747]'
+                    : 'border-transparent text-[#A79277]/60 hover:text-[#A79277]'
+                }`}
+              >
+                Buyurtmalarim ({userOrders.length})
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+              {activeProfileTab === 'profil' ? (
+                <>
+                  {profileSaveSuccess && (
+                    <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-sm font-semibold border border-emerald-200">
+                      {profileSaveSuccess}
+                    </div>
+                  )}
+
+                  {profileSaveError && (
+                    <div className="p-3 bg-red-100 text-red-800 rounded-xl text-sm font-semibold border border-red-200">
+                      {profileSaveError}
+                    </div>
+                  )}
+
+                  {/* Profile Info Card */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#A79277]/10 space-y-4">
+                    <div className="flex justify-between items-center border-b border-[#A79277]/10 pb-3">
+                      <h4 className="font-extrabold text-[#A79277]">Shaxsiy Ma'lumotlar</h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(!isEditingProfile)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-[#FF4747] bg-[#FF4747]/10 hover:bg-[#FF4747]/20 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Edit3 size={14} />
+                        {isEditingProfile ? 'Bekor qilish' : 'Tahrirlash'}
+                      </button>
+                    </div>
+
+                    {isEditingProfile ? (
+                      <form onSubmit={handleSaveProfile} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-[#A79277] mb-1">Ismingiz</label>
+                          <input
+                            type="text"
+                            required
+                            value={profileFormData.name}
+                            onChange={(e) => setProfileFormData({ ...profileFormData, name: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl border border-[#A79277]/20 focus:border-[#FF4747] outline-none text-sm font-semibold text-[#A79277]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#A79277] mb-1">Telefon raqam</label>
+                          <input
+                            type="text"
+                            required
+                            value={profileFormData.phone}
+                            onChange={(e) => setProfileFormData({ ...profileFormData, phone: e.target.value })}
+                            className="w-full px-4 py-2.5 rounded-xl border border-[#A79277]/20 focus:border-[#FF4747] outline-none text-sm font-semibold text-[#A79277]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-[#A79277] mb-1">Email manzil</label>
+                          <input
+                            type="email"
+                            value={profileFormData.email}
+                            onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })}
+                            placeholder="Ixtiyoriy"
+                            className="w-full px-4 py-2.5 rounded-xl border border-[#A79277]/20 focus:border-[#FF4747] outline-none text-sm font-semibold text-[#A79277]"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isProfileSaving}
+                          className="w-full bg-[#111827] text-white font-bold py-2.5 rounded-xl hover:bg-black transition-colors flex items-center justify-center gap-2 text-sm"
+                        >
+                          <Save size={16} />
+                          {isProfileSaving ? 'Saqlanmoqda...' : 'Saqlash'}
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="space-y-2 text-sm font-semibold text-[#A79277]">
+                        <div className="flex justify-between">
+                          <span className="text-[#A79277]/70 font-normal">Ism:</span>
+                          <span>{user?.name || 'Kiritilmagan'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#A79277]/70 font-normal">Telefon:</span>
+                          <span>{user?.phone || 'Kiritilmagan'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#A79277]/70 font-normal">Email:</span>
+                          <span>{user?.email || 'Kiritilmagan'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cashback Card */}
+                  <div className="bg-[#F7E998]/40 p-5 rounded-2xl border border-[#F7E998] flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#A79277]">Keshbek Balansingiz</span>
+                      <p className="text-2xl font-black text-[#A79277]">{formatNumber(user?.cashback_balance)} <span className="text-xs font-bold">tanga</span></p>
+                    </div>
+                    <div className="w-12 h-12 bg-amber-400/20 rounded-full flex items-center justify-center text-amber-600 font-extrabold text-xl">
+                      🪙
+                    </div>
+                  </div>
+
+                  {/* Delivery Location Section */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#A79277]/10 space-y-3">
+                    <h4 className="font-extrabold text-[#A79277]">Yetkazib Berish Manzili</h4>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => updateAddress(e.target.value)}
+                        placeholder="Manzilni kiriting..."
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-[#A79277]/20 text-sm font-semibold text-[#A79277] outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleGetLocation}
+                        disabled={isLocating}
+                        className="p-2.5 bg-[#F7E998] hover:bg-[#F7E998]/80 rounded-xl text-[#A79277] transition-colors"
+                        title="Joriy joylashuvni aniqlash"
+                      >
+                        <MapPin size={20} className="text-[#FF4747]" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Logout Button */}
+                  <button
+                    onClick={() => {
+                      logout();
+                      setIsProfileModalOpen(false);
+                    }}
+                    className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-2xl border border-red-200 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <LogOut size={18} />
+                    Tizimdan chiqish
+                  </button>
+                </>
+              ) : (
+                /* Buyurtmalarim Tab */
+                <div>
+                  {isLoadingOrders ? (
+                    <div className="py-12 text-center text-sm font-bold text-[#A79277]">Buyurtmalar yuklanmoqda...</div>
+                  ) : userOrders.length === 0 ? (
+                    <div className="py-12 text-center text-sm font-semibold text-[#A79277]/70">
+                      Sizda hali hechnarsa buyurtma qilinmagan.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {userOrders.map((order) => {
+                        const statusBadge = getStatusBadge(order.status);
+                        return (
+                          <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border border-[#A79277]/10 space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="font-extrabold text-[#A79277] text-base">Buyurtma #{order.id}</span>
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${statusBadge.bg}`}>
+                                {statusBadge.label}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-[#A79277]/60 font-semibold">
+                              {new Date(order.created_at).toLocaleString('uz-UZ')}
+                            </p>
+
+                            {/* Order Items */}
+                            <div className="bg-[#FFF2E1]/40 p-3 rounded-xl space-y-1 text-xs font-semibold text-[#A79277]">
+                              {order.items && order.items.map((item, idx) => (
+                                <div key={idx} className="flex justify-between">
+                                  <span>{item.quantity}x {item.name}</span>
+                                  <span>{formatNumber((item.price || 0) * item.quantity)} so'm</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="flex justify-between items-center pt-1">
+                              <div>
+                                <span className="text-xs text-[#A79277]/70 block">Jami summa:</span>
+                                <span className="font-black text-[#FF4747] text-base">{formatNumber(order.total)} so'm</span>
+                              </div>
+
+                              {order.status === 'completed' && !order.is_rated && (
+                                <button
+                                  onClick={() => {
+                                    setRatingOrder(order);
+                                    setRatingScore(5);
+                                    setRatingComment('');
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 text-amber-800 font-bold text-xs hover:bg-amber-200 transition-colors"
+                                >
+                                  <Star size={14} className="fill-amber-500 text-amber-500" />
+                                  Baholash
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rating Modal */}
+      {ratingOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4" onClick={() => setRatingOrder(null)}>
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-extrabold text-center text-gray-900 mb-2">Buyurtmani Baholash</h3>
+            <p className="text-xs text-center text-gray-500 mb-6">Buyurtma #{ratingOrder.id} xizmat ko'rsatish sifatini baholang</p>
+
+            <div className="flex justify-center gap-2 mb-6">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} onClick={() => setRatingScore(star)} className="focus:outline-none transition-transform active:scale-125">
+                  <Star
+                    size={36}
+                    className={star <= ratingScore ? "fill-amber-400 text-amber-400" : "text-gray-300"}
+                  />
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              rows={3}
+              value={ratingComment}
+              onChange={(e) => setRatingComment(e.target.value)}
+              placeholder="Qo'shimcha izoh qoldiring (ixtiyoriy)..."
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-amber-400 mb-6 font-medium"
+            />
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setRatingOrder(null)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200 transition-colors"
+              >
+                Bekor qilish
+              </button>
+              <button
+                type="button"
+                onClick={submitRating}
+                disabled={isRatingSubmitting}
+                className="flex-1 py-3 bg-amber-400 text-amber-950 font-extrabold rounded-xl text-sm hover:bg-amber-500 transition-colors"
+              >
+                {isRatingSubmitting ? 'Yuborilmoqda...' : 'Yuborish'}
               </button>
             </div>
           </div>
