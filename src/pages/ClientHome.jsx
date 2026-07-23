@@ -285,7 +285,7 @@ const ClientHome = () => {
               className="flex items-center gap-2 bg-[#F7E998]/50 hover:bg-[#F7E998] text-[#A79277] transition-colors py-2.5 px-4 rounded-full font-semibold text-sm disabled:opacity-70 border border-[#F7E998] max-w-[140px] sm:max-w-[200px]"
             >
               <MapPin size={16} className="flex-shrink-0 text-[#FF4747]" />
-              <span className="truncate">{address || 'Manzilni aniqlash'}</span>
+              <span className="truncate">{address || t('detect_location', 'Manzilni aniqlash')}</span>
             </button>
             <button
               onClick={toggleLanguage}
@@ -298,7 +298,7 @@ const ClientHome = () => {
                 onClick={() => setIsLoginModalOpen(true)}
                 className="flex items-center justify-center px-5 py-2.5 rounded-full bg-[#FF4747] text-[#FFF2E1] hover:bg-[#FF4747]/90 shadow-md shadow-[#FF4747]/20 transition-all font-semibold text-sm whitespace-nowrap"
               >
-                Tizimga kirish
+                {t('login', 'Tizimga kirish')}
               </button>
             ) : (
               <button
@@ -618,7 +618,7 @@ const ClientHome = () => {
           className="flex flex-col items-center justify-center w-full h-full text-[#A79277]/50 hover:text-[#FF4747] transition-colors"
         >
           <Home size={24} className="mb-1.5" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold uppercase tracking-wide">Asosiy</span>
+          <span className="text-[10px] font-bold uppercase tracking-wide">{t('home', 'Asosiy')}</span>
         </button>
         <button
           onClick={() => {
@@ -631,7 +631,7 @@ const ClientHome = () => {
           className="flex flex-col items-center justify-center w-full h-full text-[#A79277]/50 hover:text-[#FF4747] transition-colors"
         >
           <List size={24} className="mb-1.5" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold uppercase tracking-wide">Katalog</span>
+          <span className="text-[10px] font-bold uppercase tracking-wide">{t('catalog', 'Katalog')}</span>
         </button>
         <button onClick={() => navigate('/checkout')} className="flex flex-col items-center justify-center w-full h-full text-[#A79277]/50 hover:text-[#FF4747] transition-colors relative">
           <ShoppingCart size={24} className="mb-1.5" strokeWidth={2.5} />
@@ -640,7 +640,7 @@ const ClientHome = () => {
               {totalItems}
             </span>
           )}
-          <span className="text-[10px] font-bold uppercase tracking-wide">Savat</span>
+          <span className="text-[10px] font-bold uppercase tracking-wide">{t('cart', 'Savat')}</span>
         </button>
         <button
           onClick={() => {
@@ -653,7 +653,7 @@ const ClientHome = () => {
           className="flex flex-col items-center justify-center w-full h-full text-[#A79277]/50 hover:text-[#FF4747] transition-colors"
         >
           <User size={24} className="mb-1.5" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold uppercase tracking-wide">Profil</span>
+          <span className="text-[10px] font-bold uppercase tracking-wide">{t('profile', 'Profil')}</span>
         </button>
       </div>
 
@@ -681,9 +681,9 @@ const ClientHome = () => {
             <div className="w-20 h-20 bg-[#FF4747]/10 text-[#FF4747] rounded-full flex items-center justify-center mx-auto mb-6 border border-[#FF4747]/20">
               <User size={36} strokeWidth={2} />
             </div>
-            <h2 className="text-3xl font-extrabold mb-2 text-center text-[#A79277]">{authMode === 'login' ? 'Tizimga kirish' : 'Ro\'yxatdan o\'tish'}</h2>
+            <h2 className="text-3xl font-extrabold mb-2 text-center text-[#A79277]">{authMode === 'login' ? t('login', 'Tizimga kirish') : t('register', 'Ro\'yxatdan o\'tish')}</h2>
             <p className="text-[#A79277]/80 mb-6 text-sm text-center leading-relaxed">
-              {authMode === 'login' ? 'Telefon raqam yoki elektron pochta va parolni kiriting' : 'Barcha maydonlarni to\'ldirib ro\'yxatdan o\'ting'}
+              {authMode === 'login' ? t('login_desc', 'Telefon raqam yoki elektron pochta va parolni kiriting') : t('register_desc', 'Barcha maydonlarni to\'ldirib ro\'yxatdan o\'ting')}
             </p>
 
             {authError && (
@@ -696,7 +696,7 @@ const ClientHome = () => {
               {authMode === 'register' && (
                 <>
                   <div>
-                    <label className="block text-sm font-bold text-[#A79277] mb-1">Ism familiya</label>
+                    <label className="block text-sm font-bold text-[#A79277] mb-1">{t('name', 'Ism familiya')}</label>
                     <input
                       type="text"
                       required
@@ -721,7 +721,7 @@ const ClientHome = () => {
               )}
 
               <div>
-                <label className="block text-sm font-bold text-[#A79277] mb-1">{authMode === 'login' ? 'Telefon yoki Email' : 'Telefon raqam'}</label>
+                <label className="block text-sm font-bold text-[#A79277] mb-1">{authMode === 'login' ? t('phone_or_email', 'Telefon yoki Email') : t('phone', 'Telefon raqam')}</label>
                 <input
                   type="text"
                   required
@@ -733,7 +733,7 @@ const ClientHome = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-[#A79277] mb-1">Parol</label>
+                <label className="block text-sm font-bold text-[#A79277] mb-1">{t('password', 'Parol')}</label>
                 <input
                   type="password"
                   required
@@ -749,7 +749,7 @@ const ClientHome = () => {
                 disabled={isAuthLoading}
                 className="w-full bg-[#FF4747] hover:bg-[#FF4747]/90 disabled:opacity-50 text-[#FFF2E1] font-bold py-4 mt-2 rounded-2xl transition-all shadow-lg shadow-[#FF4747]/20 active:scale-[0.98] text-lg"
               >
-                {isAuthLoading ? 'Kuting...' : (authMode === 'login' ? 'Kirish' : 'Ro\'yxatdan o\'tish')}
+                {isAuthLoading ? t('loading', 'Kuting...') : (authMode === 'login' ? t('login', 'Kirish') : t('register', 'Ro\'yxatdan o\'tish'))}
               </button>
             </form>
 
@@ -762,7 +762,7 @@ const ClientHome = () => {
                 }}
                 className="text-[#A79277] font-semibold hover:text-[#FF4747] transition-colors"
               >
-                {authMode === 'login' ? 'Akkauntingiz yo\'qmi? Ro\'yxatdan o\'ting' : 'Akkauntingiz bormi? Tizimga kiring'}
+                {authMode === 'login' ? t('no_account', 'Akkauntingiz yo\'qmi? Ro\'yxatdan o\'ting') : t('has_account', 'Akkauntingiz bormi? Tizimga kiring')}
               </button>
             </div>
           </div>
@@ -781,7 +781,7 @@ const ClientHome = () => {
                   {user?.name ? user.name[0].toUpperCase() : 'M'}
                 </div>
                 <div>
-                  <h3 className="text-xl font-extrabold text-[#A79277]">{user?.name || 'Mijoz'}</h3>
+                  <h3 className="text-xl font-extrabold text-[#A79277]">{user?.name || t('guest', 'Mijoz')}</h3>
                   <p className="text-xs font-semibold text-[#A79277]/70">{user?.phone}</p>
                 </div>
               </div>
@@ -798,12 +798,10 @@ const ClientHome = () => {
               <button
                 onClick={() => setActiveProfileTab('profil')}
                 className={`flex-1 py-3 font-bold text-sm text-center border-b-2 transition-all ${
-                  activeProfileTab === 'profil'
-                    ? 'border-[#FF4747] text-[#FF4747]'
-                    : 'border-transparent text-[#A79277]/60 hover:text-[#A79277]'
+                  activeProfileTab === 'profil' ? 'border-[#FF4747] text-[#A79277]' : 'border-transparent text-[#A79277]/50 hover:text-[#A79277]'
                 }`}
               >
-                Ma'lumotlarim
+                {t('my_details', 'Ma\'lumotlarim')}
               </button>
               <button
                 onClick={() => {
@@ -811,12 +809,10 @@ const ClientHome = () => {
                   fetchUserOrders();
                 }}
                 className={`flex-1 py-3 font-bold text-sm text-center border-b-2 transition-all ${
-                  activeProfileTab === 'buyurtmalar'
-                    ? 'border-[#FF4747] text-[#FF4747]'
-                    : 'border-transparent text-[#A79277]/60 hover:text-[#A79277]'
+                  activeProfileTab === 'buyurtmalar' ? 'border-[#FF4747] text-[#A79277]' : 'border-transparent text-[#A79277]/50 hover:text-[#A79277]'
                 }`}
               >
-                Buyurtmalarim ({userOrders.length})
+                {t('orders', 'Buyurtmalar')}
               </button>
             </div>
 
@@ -839,21 +835,21 @@ const ClientHome = () => {
                   {/* Profile Info Card */}
                   <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#A79277]/10 space-y-4">
                     <div className="flex justify-between items-center border-b border-[#A79277]/10 pb-3">
-                      <h4 className="font-extrabold text-[#A79277]">Shaxsiy Ma'lumotlar</h4>
+                      <h4 className="font-extrabold text-[#A79277]">{t('personal_info', 'Shaxsiy Ma\'lumotlar')}</h4>
                       <button
                         type="button"
                         onClick={() => setIsEditingProfile(!isEditingProfile)}
                         className="flex items-center gap-1.5 text-xs font-bold text-[#FF4747] bg-[#FF4747]/10 hover:bg-[#FF4747]/20 px-3 py-1.5 rounded-lg transition-colors"
                       >
                         <Edit3 size={14} />
-                        {isEditingProfile ? 'Bekor qilish' : 'Tahrirlash'}
+                        {isEditingProfile ? t('cancel', 'Bekor qilish') : t('edit', 'Tahrirlash')}
                       </button>
                     </div>
 
                     {isEditingProfile ? (
                       <form onSubmit={handleSaveProfile} className="space-y-4">
                         <div>
-                          <label className="block text-xs font-bold text-[#A79277] mb-1">Ismingiz</label>
+                          <label className="block text-xs font-bold text-[#A79277] mb-1">{t('your_name', 'Ismingiz')}</label>
                           <input
                             type="text"
                             required
@@ -864,7 +860,7 @@ const ClientHome = () => {
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-[#A79277] mb-1">Telefon raqam</label>
+                          <label className="block text-xs font-bold text-[#A79277] mb-1">{t('phone', 'Telefon raqam')}</label>
                           <input
                             type="text"
                             required
@@ -875,12 +871,12 @@ const ClientHome = () => {
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-[#A79277] mb-1">Email manzil</label>
+                          <label className="block text-xs font-bold text-[#A79277] mb-1">{t('email_address', 'Email manzil')}</label>
                           <input
                             type="email"
                             value={profileFormData.email}
                             onChange={(e) => setProfileFormData({ ...profileFormData, email: e.target.value })}
-                            placeholder="Ixtiyoriy"
+                            placeholder={t('optional', 'Ixtiyoriy')}
                             className="w-full px-4 py-2.5 rounded-xl border border-[#A79277]/20 focus:border-[#FF4747] outline-none text-sm font-semibold text-[#A79277]"
                           />
                         </div>
@@ -891,22 +887,22 @@ const ClientHome = () => {
                           className="w-full bg-[#111827] text-white font-bold py-2.5 rounded-xl hover:bg-black transition-colors flex items-center justify-center gap-2 text-sm"
                         >
                           <Save size={16} />
-                          {isProfileSaving ? 'Saqlanmoqda...' : 'Saqlash'}
+                          {isProfileSaving ? t('saving', 'Saqlanmoqda...') : t('save', 'Saqlash')}
                         </button>
                       </form>
                     ) : (
                       <div className="space-y-2 text-sm font-semibold text-[#A79277]">
                         <div className="flex justify-between">
-                          <span className="text-[#A79277]/70 font-normal">Ism:</span>
-                          <span>{user?.name || 'Kiritilmagan'}</span>
+                          <span className="text-[#A79277]/70 font-normal">{t('name_label', 'Ism:')}</span>
+                          <span>{user?.name || t('not_entered', 'Kiritilmagan')}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[#A79277]/70 font-normal">Telefon:</span>
-                          <span>{user?.phone || 'Kiritilmagan'}</span>
+                          <span className="text-[#A79277]/70 font-normal">{t('phone_label', 'Telefon:')}</span>
+                          <span>{user?.phone || t('not_entered', 'Kiritilmagan')}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[#A79277]/70 font-normal">Email:</span>
-                          <span>{user?.email || 'Kiritilmagan'}</span>
+                          <span className="text-[#A79277]/70 font-normal">{t('email_label', 'Email:')}</span>
+                          <span>{user?.email || t('not_entered', 'Kiritilmagan')}</span>
                         </div>
                       </div>
                     )}
@@ -915,7 +911,7 @@ const ClientHome = () => {
                   {/* Cashback Card */}
                   <div className="bg-[#F7E998]/40 p-5 rounded-2xl border border-[#F7E998] flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#A79277]">Keshbek Balansingiz</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#A79277]">{t('cashback_balance', 'Keshbek Balansingiz')}</span>
                       <p className="text-2xl font-black text-[#A79277]">{formatNumber(user?.cashback_balance)} <span className="text-xs font-bold">tanga</span></p>
                     </div>
                     <div className="w-12 h-12 bg-amber-400/20 rounded-full flex items-center justify-center text-amber-600 font-extrabold text-xl">
@@ -925,13 +921,13 @@ const ClientHome = () => {
 
                   {/* Delivery Location Section */}
                   <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#A79277]/10 space-y-3">
-                    <h4 className="font-extrabold text-[#A79277]">Yetkazib Berish Manzili</h4>
+                    <h4 className="font-extrabold text-[#A79277]">{t('delivery_address', 'Yetkazib Berish Manzili')}</h4>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={address}
                         onChange={(e) => updateAddress(e.target.value)}
-                        placeholder="Manzilni kiriting..."
+                        placeholder={t('enter_address', 'Manzilni kiriting...')}
                         className="flex-1 px-4 py-2.5 rounded-xl border border-[#A79277]/20 text-sm font-semibold text-[#A79277] outline-none"
                       />
                       <button
@@ -939,7 +935,7 @@ const ClientHome = () => {
                         onClick={handleGetLocation}
                         disabled={isLocating}
                         className="p-2.5 bg-[#F7E998] hover:bg-[#F7E998]/80 rounded-xl text-[#A79277] transition-colors"
-                        title="Joriy joylashuvni aniqlash"
+                        title={t('detect_location', 'Joriy joylashuvni aniqlash')}
                       >
                         <MapPin size={20} className="text-[#FF4747]" />
                       </button>
@@ -955,17 +951,17 @@ const ClientHome = () => {
                     className="w-full py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-2xl border border-red-200 transition-colors flex items-center justify-center gap-2"
                   >
                     <LogOut size={18} />
-                    Tizimdan chiqish
+                    {t('logout', 'Tizimdan chiqish')}
                   </button>
                 </>
               ) : (
                 /* Buyurtmalarim Tab */
                 <div>
                   {isLoadingOrders ? (
-                    <div className="py-12 text-center text-sm font-bold text-[#A79277]">Buyurtmalar yuklanmoqda...</div>
+                    <div className="py-12 text-center text-sm font-bold text-[#A79277]">{t('orders_loading', 'Buyurtmalar yuklanmoqda...')}</div>
                   ) : userOrders.length === 0 ? (
                     <div className="py-12 text-center text-sm font-semibold text-[#A79277]/70">
-                      Sizda hali hechnarsa buyurtma qilinmagan.
+                      {t('no_orders', 'Sizda hali hechnarsa buyurtma qilinmagan.')}
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -974,7 +970,7 @@ const ClientHome = () => {
                         return (
                           <div key={order.id} className="bg-white p-4 rounded-2xl shadow-sm border border-[#A79277]/10 space-y-3">
                             <div className="flex justify-between items-center">
-                              <span className="font-extrabold text-[#A79277] text-base">Buyurtma #{order.id}</span>
+                              <span className="font-extrabold text-[#A79277] text-base">{t('order_number', 'Buyurtma')} #{order.id}</span>
                               <span className={`px-3 py-1 rounded-full text-xs font-bold border ${statusBadge.bg}`}>
                                 {statusBadge.label}
                               </span>
@@ -996,7 +992,7 @@ const ClientHome = () => {
 
                             <div className="flex justify-between items-center pt-1">
                               <div>
-                                <span className="text-xs text-[#A79277]/70 block">Jami summa:</span>
+                                <span className="text-xs text-[#A79277]/70 block">{t('total_amount', 'Jami summa:')}</span>
                                 <span className="font-black text-[#FF4747] text-base">{formatNumber(order.total)} so'm</span>
                               </div>
 
@@ -1010,7 +1006,7 @@ const ClientHome = () => {
                                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-100 text-amber-800 font-bold text-xs hover:bg-amber-200 transition-colors"
                                 >
                                   <Star size={14} className="fill-amber-500 text-amber-500" />
-                                  Baholash
+                                  {t('rate', 'Baholash')}
                                 </button>
                               )}
                             </div>
@@ -1030,8 +1026,8 @@ const ClientHome = () => {
       {ratingOrder && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4" onClick={() => setRatingOrder(null)}>
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl border border-gray-100" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-extrabold text-center text-gray-900 mb-2">Buyurtmani Baholash</h3>
-            <p className="text-xs text-center text-gray-500 mb-6">Buyurtma #{ratingOrder.id} xizmat ko'rsatish sifatini baholang</p>
+            <h3 className="text-xl font-extrabold text-center text-gray-900 mb-2">{t('rate_order', 'Buyurtmani Baholash')}</h3>
+            <p className="text-xs text-center text-gray-500 mb-6">{t('rate_order_desc', 'Buyurtma #{{id}} xizmat ko\'rsatish sifatini baholang', { id: ratingOrder.id })}</p>
 
             <div className="flex justify-center gap-2 mb-6">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -1048,7 +1044,7 @@ const ClientHome = () => {
               rows={3}
               value={ratingComment}
               onChange={(e) => setRatingComment(e.target.value)}
-              placeholder="Qo'shimcha izoh qoldiring (ixtiyoriy)..."
+              placeholder={t('comment_optional', 'Qo\'shimcha izoh qoldiring (ixtiyoriy)...')}
               className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-amber-400 mb-6 font-medium"
             />
 
@@ -1058,7 +1054,7 @@ const ClientHome = () => {
                 onClick={() => setRatingOrder(null)}
                 className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200 transition-colors"
               >
-                Bekor qilish
+                {t('cancel', 'Bekor qilish')}
               </button>
               <button
                 type="button"
@@ -1066,7 +1062,7 @@ const ClientHome = () => {
                 disabled={isRatingSubmitting}
                 className="flex-1 py-3 bg-amber-400 text-amber-950 font-extrabold rounded-xl text-sm hover:bg-amber-500 transition-colors"
               >
-                {isRatingSubmitting ? 'Yuborilmoqda...' : 'Yuborish'}
+                {isRatingSubmitting ? t('sending', 'Yuborilmoqda...') : t('send', 'Yuborish')}
               </button>
             </div>
           </div>

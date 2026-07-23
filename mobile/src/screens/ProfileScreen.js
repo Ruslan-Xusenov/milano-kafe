@@ -114,9 +114,9 @@ export default function ProfileScreen() {
       });
       login(res.data, user.token);
       setIsEditing(false);
-      Alert.alert("Muvaffaqiyatli", "Ma'lumotlar saqlandi");
+      Alert.alert(t('success', "Muvaffaqiyatli"), t('data_saved', "Ma'lumotlar saqlandi"));
     } catch (err) {
-      Alert.alert("Xatolik", err.response?.data?.error || "Saqlashda xatolik");
+      Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('save_error', "Saqlashda xatolik"));
     } finally {
       setLoading(false);
     }
@@ -130,10 +130,10 @@ export default function ProfileScreen() {
         comment: ratingComment
       });
       setRatingModalVisible(false);
-      Alert.alert("Rahmat!", "Fikringiz uchun tashakkur.");
+      Alert.alert(t('thank_you', "Rahmat!"), t('thanks_for_feedback', "Fikringiz uchun tashakkur."));
       fetchOrders(false);
     } catch (err) {
-      Alert.alert("Xatolik", err.response?.data?.error || "Baholashda xatolik yuz berdi");
+      Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('rating_error', "Baholashda xatolik yuz berdi"));
     }
   };
 
@@ -151,7 +151,7 @@ export default function ProfileScreen() {
 
   const handleAuth = async () => {
     if (!email || !password || (!isLogin && !name)) {
-      Alert.alert("Xatolik", "Iltimos, barcha maydonlarni to'ldiring");
+      Alert.alert(t('error', "Xatolik"), t('fill_all_fields', "Iltimos, barcha maydonlarni to'ldiring"));
       return;
     }
     
@@ -163,7 +163,7 @@ export default function ProfileScreen() {
       const res = await api.post(endpoint, payload);
       login(res.data.user, res.data.token);
     } catch (err) {
-      Alert.alert("Xatolik", err.response?.data?.error || "Xatolik yuz berdi");
+      Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('general_error', "Xatolik yuz berdi"));
     } finally {
       setLoading(false);
     }
@@ -171,11 +171,11 @@ export default function ProfileScreen() {
 
   const handleSocialAuth = async (provider) => {
     if (provider === 'Google') {
-      Alert.alert("Tez orada", "Google orqali kirish vaqtinchalik o'chirilgan.");
+      Alert.alert(t('soon', "Tez orada"), t('google_login_disabled', "Google orqali kirish vaqtinchalik o'chirilgan."));
     } else if (provider === 'Telegram') {
       setTelegramFlowStep(1);
     } else {
-      Alert.alert("Tez orada", `${provider} orqali kirish tez orada ishga tushadi!`);
+      Alert.alert(t('soon', "Tez orada"), `${provider} ` + t('login_soon', "orqali kirish tez orada ishga tushadi!"));
     }
   };
   
@@ -212,7 +212,7 @@ export default function ProfileScreen() {
         setTelegramFlowStep(0);
       }
     } catch (err) {
-      Alert.alert("Xatolik", err.response?.data?.error || "Kod xato yoki tasdiqlanmadi");
+      Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('code_invalid', "Kod xato yoki tasdiqlanmadi"));
     } finally {
       setLoading(false);
     }
@@ -229,7 +229,7 @@ export default function ProfileScreen() {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert("Xatolik", "Lokatsiyani olish uchun ruxsat berilmadi!");
+        Alert.alert(t('error', "Xatolik"), t('location_permission_denied', "Lokatsiyani olish uchun ruxsat berilmadi!"));
         setLocating(false);
         return;
       }
@@ -264,7 +264,7 @@ export default function ProfileScreen() {
         }
       }
     } catch (error) {
-      Alert.alert("Xatolik", "Lokatsiyani aniqlab bo'lmadi.");
+      Alert.alert(t('error', "Xatolik"), t('location_failed', "Lokatsiyani aniqlab bo'lmadi."));
     } finally {
       setLocating(false);
     }
@@ -279,17 +279,17 @@ export default function ProfileScreen() {
             <View style={styles.authIconWrap}>
               <Navigation size={28} color="#3B82F6" />
             </View>
-            <Text style={styles.authTitle}>Telegram orqali kirish</Text>
+            <Text style={styles.authTitle}>{t('login_telegram', 'Telegram orqali kirish')}</Text>
             <Text style={styles.authSubtitle}>
               {telegramFlowStep === 1 
-                ? "Telefon raqamingizni kiriting va botga o'ting" 
-                : "Bot bergan 6 xonali kodni kiriting"}
+                ? t('enter_phone_bot', "Telefon raqamingizni kiriting va botga o'ting") 
+                : t('enter_bot_code', "Bot bergan 6 xonali kodni kiriting")}
             </Text>
           </View>
           <View style={styles.authForm}>
             {telegramFlowStep === 1 ? (
               <TouchableOpacity style={styles.primaryBtn} onPress={handleTelegramContinue} activeOpacity={0.8}>
-                <Text style={styles.primaryBtnText}>Davom etish (Botni ochish)</Text>
+                <Text style={styles.primaryBtnText}>{t('continue_bot', "Davom etish (Botni ochish)")}</Text>
               </TouchableOpacity>
             ) : (
               <>
@@ -303,12 +303,12 @@ export default function ProfileScreen() {
                   placeholderTextColor="rgba(167,146,119,0.3)"
                 />
                 <TouchableOpacity style={styles.primaryBtn} onPress={handleTelegramVerify} disabled={loading} activeOpacity={0.8}>
-                  {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>Tasdiqlash va Kirish</Text>}
+                  {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>{t('confirm_login', 'Tasdiqlash va Kirish')}</Text>}
                 </TouchableOpacity>
               </>
             )}
             <TouchableOpacity onPress={() => setTelegramFlowStep(0)} style={{ marginTop: 24, alignItems: 'center' }}>
-              <Text style={styles.toggleLink}>Orqaga qaytish</Text>
+              <Text style={styles.toggleLink}>{t('go_back', 'Orqaga qaytish')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -321,10 +321,25 @@ export default function ProfileScreen() {
           <View style={styles.authIconWrap}>
             <User size={28} color="#FF4747" />
           </View>
-          <Text style={styles.authTitle}>{isLogin ? "Tizimga kirish" : "Ro'yxatdan o'tish"}</Text>
+          <Text style={styles.authTitle}>{isLogin ? t('login_title', "Tizimga kirish") : t('register', "Ro'yxatdan o'tish")}</Text>
           <Text style={styles.authSubtitle}>
-            {isLogin ? "Ma'lumotlaringizni kiritib profilingizga kiring" : "Yangi profil yarating va buyurtma bering"}
+            {isLogin ? t('login_desc', "Ma'lumotlaringizni kiritib profilingizga kiring") : t('register_desc', "Yangi profil yarating va buyurtma bering")}
           </Text>
+          
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+            <TouchableOpacity 
+              style={[styles.langBtn, i18n.language === 'uz' && styles.langBtnActive, { paddingVertical: 10 }]} 
+              onPress={() => changeLanguage('uz')}
+            >
+              <Text style={[styles.langBtnText, i18n.language === 'uz' && styles.langBtnTextActive, { fontSize: 13 }]}>O'zbek</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.langBtn, i18n.language === 'ru' && styles.langBtnActive, { paddingVertical: 10 }]} 
+              onPress={() => changeLanguage('ru')}
+            >
+              <Text style={[styles.langBtnText, i18n.language === 'ru' && styles.langBtnTextActive, { fontSize: 13 }]}>Русский</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
         <View style={styles.authForm}>
@@ -333,7 +348,7 @@ export default function ProfileScreen() {
               style={styles.authInput}
               value={name}
               onChangeText={setName}
-              placeholder="Ismingiz"
+              placeholder={t('name_placeholder', "Ismingiz")}
               placeholderTextColor="rgba(167,146,119,0.5)"
             />
           )}
@@ -343,7 +358,7 @@ export default function ProfileScreen() {
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
-            placeholder="Email manzil"
+            placeholder={t('email_placeholder', "Email manzil")}
             placeholderTextColor="rgba(167,146,119,0.5)"
             autoCapitalize="none"
           />
@@ -352,26 +367,26 @@ export default function ProfileScreen() {
             style={styles.authInput}
             value={password}
             onChangeText={setPassword}
-            placeholder="Parol"
+            placeholder={t('password', "Parol")}
             placeholderTextColor="rgba(167,146,119,0.5)"
             secureTextEntry
           />
           
           <TouchableOpacity style={styles.primaryBtn} onPress={handleAuth} disabled={loading} activeOpacity={0.8}>
-            {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>{isLogin ? "Kirish" : "Ro'yxatdan o'tish"}</Text>}
+            {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>{isLogin ? t('login_button', "Kirish") : t('register', "Ro'yxatdan o'tish")}</Text>}
           </TouchableOpacity>
           
           <View style={styles.toggleContainer}>
-            <Text style={styles.toggleText}>{isLogin ? "Akkauntingiz yo'qmi?" : "Akkauntingiz bormi?"}</Text>
+            <Text style={styles.toggleText}>{isLogin ? t('no_account', "Akkauntingiz yo'qmi?") : t('has_account', "Akkauntingiz bormi?")}</Text>
             <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-              <Text style={styles.toggleLink}>{isLogin ? "Ro'yxatdan o'tish" : "Tizimga kirish"}</Text>
+              <Text style={styles.toggleLink}>{isLogin ? t('register', "Ro'yxatdan o'tish") : t('login_title', "Tizimga kirish")}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.dividerContainer}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Yoki quyidagilar orqali</Text>
+          <Text style={styles.dividerText}>{t('or_via', 'Yoki quyidagilar orqali')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -427,18 +442,18 @@ export default function ProfileScreen() {
               <View style={{ flex: 1 }}>
                 {isEditing ? (
                   <>
-                    <TextInput style={styles.editInput} value={editName} onChangeText={setEditName} placeholder="Ism" placeholderTextColor="rgba(167,146,119,0.5)" />
-                    <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder="Telefon raqam" keyboardType="phone-pad" placeholderTextColor="rgba(167,146,119,0.5)" />
-                    <TextInput style={styles.editInput} value={editEmail} onChangeText={setEditEmail} placeholder="Email" keyboardType="email-address" autoCapitalize="none" placeholderTextColor="rgba(167,146,119,0.5)" />
+                    <TextInput style={styles.editInput} value={editName} onChangeText={setEditName} placeholder={t('name_placeholder', "Ism")} placeholderTextColor="rgba(167,146,119,0.5)" />
+                    <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder={t('phone', "Telefon raqam")} keyboardType="phone-pad" placeholderTextColor="rgba(167,146,119,0.5)" />
+                    <TextInput style={styles.editInput} value={editEmail} onChangeText={setEditEmail} placeholder={t('email_placeholder', "Email")} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="rgba(167,146,119,0.5)" />
                     <TouchableOpacity style={styles.saveProfileBtn} onPress={handleSaveProfile}>
-                      {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.saveProfileBtnText}>Saqlash</Text>}
+                      {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.saveProfileBtnText}>{t('save', 'Saqlash')}</Text>}
                     </TouchableOpacity>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.userName}>{user.name || 'Mijoz'}</Text>
-                    <Text style={styles.userInfo}>{user.phone || 'Raqam kiritilmagan'}</Text>
-                    <Text style={styles.userInfo}>{user.email || 'Email kiritilmagan'}</Text>
+                    <Text style={styles.userName}>{user.name || t('guest', 'Mijoz')}</Text>
+                    <Text style={styles.userInfo}>{user.phone || t('not_entered', 'Kiritilmagan')}</Text>
+                    <Text style={styles.userInfo}>{user.email || t('not_entered', 'Kiritilmagan')}</Text>
                     <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}>
                       <Edit3 size={14} color="#A79277" />
                       <Text style={styles.editProfileBtnText}>{t('edit', 'Tahrirlash')}</Text>
@@ -468,21 +483,21 @@ export default function ProfileScreen() {
             
             <View style={styles.cashbackCard}>
               <View style={styles.cashbackInner}>
-                <Text style={styles.cashbackTitle}>Keshbek balansi</Text>
+                <Text style={styles.cashbackTitle}>{t('cashback_balance', 'Keshbek balansi')}</Text>
                 <Text style={styles.cashbackValue}>{formatNumber(user.cashback_balance || 0)}</Text>
-                <Text style={styles.cashbackSuffix}>tanga</Text>
+                <Text style={styles.cashbackSuffix}>{t('coin', 'tanga')}</Text>
               </View>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Yetkazib berish manzili</Text>
+              <Text style={styles.sectionTitle}>{t('delivery_address', 'Yetkazib berish manzili')}</Text>
               <View style={styles.addressInputContainer}>
                 <MapPin size={20} color="#FF4747" style={{ marginRight: 10 }} />
                 <TextInput 
                   style={styles.addressInput}
                   value={tempAddress}
                   onChangeText={setTempAddress}
-                  placeholder="Manzilni kiriting..."
+                  placeholder={t('enter_address', "Manzilni kiriting...")}
                   placeholderTextColor="rgba(167,146,119,0.5)"
                 />
                 <TouchableOpacity onPress={fetchLocation} style={styles.locationBtn}>
@@ -493,7 +508,7 @@ export default function ProfileScreen() {
                   )}
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.saveBtn} onPress={() => { setAddress(tempAddress); Alert.alert("Saqlandi", "Manzil muvaffaqiyatli saqlandi!"); }} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.saveBtn} onPress={() => { setAddress(tempAddress); Alert.alert(t('saved', "Saqlandi"), t('address_saved', "Manzil muvaffaqiyatli saqlandi!")); }} activeOpacity={0.8}>
                 <Text style={styles.saveBtnText}>{t('save', 'Saqlash')}</Text>
               </TouchableOpacity>
             </View>
@@ -532,7 +547,7 @@ export default function ProfileScreen() {
                     </View>
                     
                     <View style={styles.orderFooter}>
-                      <Text style={styles.orderTotal}>Jami: {formatNumber(order.total || 0)} so'm</Text>
+                      <Text style={styles.orderTotal}>{t('total_amount', 'Jami summa:')} {formatNumber(order.total || 0)} so'm</Text>
                       {order.status === 'completed' && !order.is_rated && (
                         <TouchableOpacity 
                           style={styles.rateBtn} 
@@ -544,7 +559,7 @@ export default function ProfileScreen() {
                           }}
                         >
                           <Star size={14} color="#FF4747" fill="rgba(255,71,71,0.2)" />
-                          <Text style={styles.rateBtnText}>Baholash</Text>
+                          <Text style={styles.rateBtnText}>{t('rate', 'Baholash')}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -562,8 +577,8 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setRatingModalVisible(false)} activeOpacity={1} />
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Buyurtmani Baholash</Text>
-            <Text style={styles.modalSubtitle}>Sizning fikringiz biz uchun muhim.</Text>
+            <Text style={styles.modalTitle}>{t('rate_order', 'Buyurtmani Baholash')}</Text>
+            <Text style={styles.modalSubtitle}>{t('rate_order_desc_mobile', 'Sizning fikringiz biz uchun muhim.')}</Text>
             
             <View style={styles.starsContainer}>
               {[1, 2, 3, 4, 5].map((star) => (
@@ -579,7 +594,7 @@ export default function ProfileScreen() {
             
             <TextInput 
               style={styles.commentInput}
-              placeholder="Qo'shimcha izoh (ixtiyoriy)..."
+              placeholder={t('comment_optional', "Qo'shimcha izoh qoldiring (ixtiyoriy)...")}
               value={ratingComment}
               onChangeText={setRatingComment}
               multiline
@@ -589,10 +604,10 @@ export default function ProfileScreen() {
             
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRatingModalVisible(false)}>
-                <Text style={styles.modalCancelText}>Bekor qilish</Text>
+                <Text style={styles.modalCancelText}>{t('cancel', 'Bekor qilish')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalSubmitBtn} onPress={submitRating}>
-                <Text style={styles.modalSubmitText}>Yuborish</Text>
+                <Text style={styles.modalSubmitText}>{t('send', 'Yuborish')}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -16,5 +16,13 @@
     "reports": "Отчеты",
     "staff_menu": "Сотрудники",
     "reviews": "Отзывы клиентов"
-  }
+  },
+  "error_login": "Ошибка входа в систему",
+  "login_title": "Вход в систему",
+  "admin_welcome": "Добро пожаловать в панель управления",
+  "username": "Логин",
+  "username_placeholder": "admin",
+  "password": "Пароль",
+  "logging_in": "Вход...",
+  "login_button": "Войти"
 }

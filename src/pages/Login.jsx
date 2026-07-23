@@ -2,6 +2,7 @@ import React, { useState, useContext } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { Lock, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -10,6 +11,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login, user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // If already logged in, redirect to admin
   if (user) {
@@ -25,7 +27,7 @@ const Login = () => {
     if (result.success) {
       navigate('/admin');
     } else {
-      setError(result.error || "Tizimga kirishda xatolik yuz berdi");
+      setError(result.error || t('error_login', "Tizimga kirishda xatolik yuz berdi"));
     }
     setIsLoading(false);
   };
@@ -39,10 +41,10 @@ const Login = () => {
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Tizimga kirish
+          {t('login_title', 'Tizimga kirish')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Boshqaruv paneliga xush kelibsiz
+          {t('admin_welcome', 'Boshqaruv paneliga xush kelibsiz')}
         </p>
       </div>
 
@@ -57,7 +59,7 @@ const Login = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Login
+                {t('username', 'Login')}
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -69,14 +71,14 @@ const Login = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="focus:ring-amber-500 focus:border-amber-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2.5 border"
-                  placeholder="admin"
+                  placeholder={t('username_placeholder', 'admin')}
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Parol
+                {t('password', 'Parol')}
               </label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -99,7 +101,7 @@ const Login = () => {
                 disabled={isLoading}
                 className={`w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
-                {isLoading ? 'Kirilmoqda...' : 'Kirish'}
+                {isLoading ? t('logging_in', 'Kirilmoqda...') : t('login_button', 'Kirish')}
               </button>
             </div>
           </form>

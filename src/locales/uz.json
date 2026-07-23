@@ -16,5 +16,13 @@
     "reports": "Hisobotlar",
     "staff_menu": "Xodimlar",
     "reviews": "Mijozlar fikri"
-  }
+  },
+  "error_login": "Tizimga kirishda xatolik yuz berdi",
+  "login_title": "Tizimga kirish",
+  "admin_welcome": "Boshqaruv paneliga xush kelibsiz",
+  "username": "Login",
+  "username_placeholder": "admin",
+  "password": "Parol",
+  "logging_in": "Kirilmoqda...",
+  "login_button": "Kirish"
 }

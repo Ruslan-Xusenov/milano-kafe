@@ -36,13 +36,13 @@ export default function CartScreen({ navigation }) {
     if (cartItems.length === 0) return;
     
     if (!user?.isLoggedIn) {
-      Alert.alert("Xatolik", "Iltimos, avval profil sahifasiga kirib tizimdan o'ting.");
+      Alert.alert(t('error', "Xatolik"), t('please_login_first', "Iltimos, avval profil sahifasiga kirib tizimdan o'ting."));
       navigation.navigate("Profil");
       return;
     }
 
     if (!orderName.trim() || !orderPhone.trim() || !orderAddress.trim()) {
-      Alert.alert("Xatolik", "Iltimos, ism, telefon raqam va manzilni to'liq kiriting!");
+      Alert.alert(t('error', "Xatolik"), t('please_fill_all', "Iltimos, ism, telefon raqam va manzilni to'liq kiriting!"));
       return;
     }
 
@@ -60,7 +60,7 @@ export default function CartScreen({ navigation }) {
 
       const res = await api.post('/orders', orderData);
       if (res.status === 201) {
-        Alert.alert("Muvaffaqiyatli!", "Buyurtmangiz qabul qilindi.");
+        Alert.alert(t('success', "Muvaffaqiyatli!"), t('order_accepted', "Buyurtmangiz qabul qilindi."));
         clearCart();
         
         // Refresh user to update cashback balance
@@ -72,7 +72,7 @@ export default function CartScreen({ navigation }) {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Xatolik", "Buyurtma berishda xatolik yuz berdi.");
+      Alert.alert(t('error', "Xatolik"), t('order_error', "Buyurtma berishda xatolik yuz berdi."));
     } finally {
       setLoading(false);
     }
