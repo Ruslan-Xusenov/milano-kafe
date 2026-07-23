@@ -74,17 +74,16 @@ app.post('/api/orders', (req, res) => {
       }
 
       let earnedAmount = 0;
-      // Keshbek endi to'langan summa (total - usedAmount) asosida beriladi
-      const paidAmount = total - usedAmount;
-      if (paidAmount > 0) {
-        if (paidAmount >= 999000) earnedAmount = Math.floor(paidAmount * 0.06);
-        else if (paidAmount >= 599000) earnedAmount = Math.floor(paidAmount * 0.05);
-        else if (paidAmount >= 299000) earnedAmount = Math.floor(paidAmount * 0.04);
-        else if (paidAmount >= 99000) earnedAmount = Math.floor(paidAmount * 0.03);
-        else earnedAmount = Math.floor(paidAmount * 0.02); // 99,000 dan kam bo'lsa 2% keshbek
+      // Agar keshbek ishlatilgan bo'lsa, yangi keshbek qo'shilmaydi
+      if (usedAmount === 0 && total > 0) {
+        if (total >= 999000) earnedAmount = Math.floor(total * 0.06);
+        else if (total >= 599000) earnedAmount = Math.floor(total * 0.05);
+        else if (total >= 299000) earnedAmount = Math.floor(total * 0.04);
+        else if (total >= 99000) earnedAmount = Math.floor(total * 0.03);
+        else earnedAmount = Math.floor(total * 0.02);
       }
 
-      db.run("UPDATE users SET cashback_balance = cashback_balance - ? + ? WHERE id = ?", [usedAmount, earnedAmount, user_id], (err) => {
+      db.run("UPDATE users SET cashback_balance = cashback_balance - ? WHERE id = ?", [usedAmount, user_id], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         insertOrder(earnedAmount, usedAmount);
       });
@@ -144,18 +143,27 @@ app.put('/api/orders/:id/status', (req, res) => {
   const { id } = req.params;
   const { status } = req.body; // 'new', 'preparing', 'delivering', 'completed', 'rejected'
 
-  const sql = `UPDATE orders SET status = ? WHERE id = ?`;
-  db.run(sql, [status, id], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    if (this.changes === 0) {
-      return res.status(404).json({ error: "Order not found" });
-    }
-    
-    // Agar buyurtma yakunlangan bo'lsa, ombordan mahsulotlarni ayirib tashlash
-    if (status === 'completed') {
-      db.get(`SELECT items FROM orders WHERE id = ?`, [id], (err, row) => {
+  db.get(`SELECT status, user_id, cashback_earned, cashback_used FROM orders WHERE id = ?`, [id], (err, oldOrder) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!oldOrder) return res.status(404).json({ error: "Order not found" });
+
+    const sql = `UPDATE orders SET status = ? WHERE id = ?`;
+    db.run(sql, [status, id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (status === 'completed' && oldOrder.status !== 'completed' && oldOrder.user_id) {
+         db.run(`UPDATE users SET cashback_balance = cashback_balance + ? WHERE id = ?`, [oldOrder.cashback_earned, oldOrder.user_id]);
+      }
+      
+      if (status === 'rejected' && oldOrder.status !== 'rejected' && oldOrder.user_id) {
+         db.run(`UPDATE users SET cashback_balance = cashback_balance + ? WHERE id = ?`, [oldOrder.cashback_used, oldOrder.user_id]);
+      }
+
+      // Agar buyurtma yakunlangan bo'lsa, ombordan mahsulotlarni ayirib tashlash
+      if (status === 'completed' && oldOrder.status !== 'completed') {
+        db.get(`SELECT items FROM orders WHERE id = ?`, [id], (err, row) => {
         if (!err && row && row.items) {
           try {
             const items = JSON.parse(row.items);
@@ -188,6 +196,7 @@ app.put('/api/orders/:id/status', (req, res) => {
     sendStatusUpdateToTelegram(id, status);
     
     res.json({ message: "Status updated", id, status });
+  });
   });
 });
 
