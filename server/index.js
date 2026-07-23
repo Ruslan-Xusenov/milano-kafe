@@ -234,18 +234,18 @@ app.get('/api/menu', (req, res) => {
 });
 
 app.post('/api/menu', (req, res) => {
-  const { name, description, price, category, emoji, color, weight, available } = req.body;
-  const sql = `INSERT INTO menu_items (name, description, price, category, emoji, color, weight, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [name, description, price, category, emoji, color, weight, available === undefined ? 1 : available], function(err) {
+  const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available } = req.body;
+  const sql = `INSERT INTO menu_items (name, name_ru, description, description_ru, price, category, emoji, color, weight, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.run(sql, [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available === undefined ? 1 : available], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID, ...req.body });
   });
 });
 
 app.put('/api/menu/:id', (req, res) => {
-  const { name, description, price, category, emoji, color, weight, available } = req.body;
-  const sql = `UPDATE menu_items SET name=?, description=?, price=?, category=?, emoji=?, color=?, weight=?, available=? WHERE id=?`;
-  db.run(sql, [name, description, price, category, emoji, color, weight, available, req.params.id], function(err) {
+  const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available } = req.body;
+  const sql = `UPDATE menu_items SET name=?, name_ru=?, description=?, description_ru=?, price=?, category=?, emoji=?, color=?, weight=?, available=? WHERE id=?`;
+  db.run(sql, [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available, req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true, id: req.params.id });
   });
@@ -639,9 +639,9 @@ app.get('/api/categories', (req, res) => {
 });
 
 app.post('/api/categories', (req, res) => {
-  const { name, emoji, color, bg, available, is_quick } = req.body;
-  db.run("INSERT INTO categories (name, emoji, color, bg, available, is_quick) VALUES (?, ?, ?, ?, ?, ?)", 
-    [name, emoji, color || 'text-gray-500', bg || 'bg-gray-100', available === undefined ? 1 : available, is_quick ? 1 : 0], 
+  const { name, name_ru, emoji, color, bg, available, is_quick } = req.body;
+  db.run("INSERT INTO categories (name, name_ru, emoji, color, bg, available, is_quick) VALUES (?, ?, ?, ?, ?, ?, ?)", 
+    [name, name_ru || '', emoji, color || 'text-gray-500', bg || 'bg-gray-100', available === undefined ? 1 : available, is_quick ? 1 : 0], 
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, ...req.body });
@@ -650,9 +650,9 @@ app.post('/api/categories', (req, res) => {
 });
 
 app.put('/api/categories/:id', (req, res) => {
-  const { name, emoji, color, bg, available, is_quick } = req.body;
-  db.run("UPDATE categories SET name=?, emoji=?, color=?, bg=?, available=?, is_quick=? WHERE id=?", 
-    [name, emoji, color, bg, available, is_quick ? 1 : 0, req.params.id], 
+  const { name, name_ru, emoji, color, bg, available, is_quick } = req.body;
+  db.run("UPDATE categories SET name=?, name_ru=?, emoji=?, color=?, bg=?, available=?, is_quick=? WHERE id=?", 
+    [name, name_ru || '', emoji, color, bg, available, is_quick ? 1 : 0, req.params.id], 
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, id: req.params.id });

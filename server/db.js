@@ -63,6 +63,17 @@ const db = new sqlite3.Database(dbPath, (err) => {
     db.run(`ALTER TABLE orders ADD COLUMN cashback_earned INTEGER DEFAULT 0`, (err) => {
       if (!err) console.log('Added cashback_earned column to orders table.');
     });
+
+    // Add bilingual columns
+    db.run(`ALTER TABLE categories ADD COLUMN name_ru TEXT`, (err) => {
+      if (!err) console.log('Added name_ru to categories.');
+    });
+    db.run(`ALTER TABLE menu_items ADD COLUMN name_ru TEXT`, (err) => {
+      if (!err) console.log('Added name_ru to menu_items.');
+    });
+    db.run(`ALTER TABLE menu_items ADD COLUMN description_ru TEXT`, (err) => {
+      if (!err) console.log('Added description_ru to menu_items.');
+    });
   }
 });
 

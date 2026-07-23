@@ -7,7 +7,7 @@ const MenuManagement = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', description: '', price: '', category: '', emoji: '', color: 'bg-gray-100', weight: ''
+    name: '', name_ru: '', description: '', description_ru: '', price: '', category: '', emoji: '', color: 'bg-gray-100', weight: ''
   });
   const [recipeModalItem, setRecipeModalItem] = useState(null);
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -40,7 +40,7 @@ const MenuManagement = () => {
         body: JSON.stringify(formData)
       });
       setShowModal(false);
-      setFormData({ name: '', description: '', price: '', category: '', emoji: '', color: 'bg-gray-100', weight: '' });
+      setFormData({ name: '', name_ru: '', description: '', description_ru: '', price: '', category: '', emoji: '', color: 'bg-gray-100', weight: '' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -164,9 +164,25 @@ const MenuManagement = () => {
           <div className="bg-white rounded-2xl w-full max-w-md p-6">
             <h2 className="text-xl font-bold mb-4">Yangi taom qo'shish</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Nomi</label>
-                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2 border rounded-lg" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Nomi (UZ)</label>
+                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Nomi (RU)</label>
+                  <input required type="text" value={formData.name_ru} onChange={e => setFormData({...formData, name_ru: e.target.value})} className="w-full p-2 border rounded-lg" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Tarkibi/Ta'rifi (UZ)</label>
+                  <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Tarkibi/Ta'rifi (RU)</label>
+                  <input type="text" value={formData.description_ru} onChange={e => setFormData({...formData, description_ru: e.target.value})} className="w-full p-2 border rounded-lg" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Narxi (UZS)</label>

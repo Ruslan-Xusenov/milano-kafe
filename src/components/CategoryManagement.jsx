@@ -5,7 +5,7 @@ const CategoryManagement = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', emoji: '', color: 'text-gray-500', bg: 'bg-gray-100', is_quick: false });
+  const [formData, setFormData] = useState({ name: '', name_ru: '', emoji: '', color: 'text-gray-500', bg: 'bg-gray-100', is_quick: false });
 
   const fetchCategories = async () => {
     try {
@@ -29,7 +29,7 @@ const CategoryManagement = () => {
         body: JSON.stringify(formData)
       });
       setShowModal(false);
-      setFormData({ name: '', emoji: '', color: 'text-gray-500', bg: 'bg-gray-100', is_quick: false });
+      setFormData({ name: '', name_ru: '', emoji: '', color: 'text-gray-500', bg: 'bg-gray-100', is_quick: false });
       fetchCategories();
     } catch (e) { console.error(e); }
   };
@@ -99,9 +99,15 @@ const CategoryManagement = () => {
           <div className="bg-white rounded-2xl w-full max-w-md p-6">
             <h2 className="text-xl font-bold mb-4">Yangi kategoriya qo'shish</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Nomi</label>
-                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2 border rounded-lg" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Nomi (UZ)</label>
+                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2 border rounded-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Nomi (RU)</label>
+                  <input required type="text" value={formData.name_ru} onChange={e => setFormData({...formData, name_ru: e.target.value})} className="w-full p-2 border rounded-lg" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Emoji yoki Rasm URL (link)</label>

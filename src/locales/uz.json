@@ -1,0 +1,20 @@
+{
+  "translation": {
+    "search": "Qidiruv...",
+    "user": "Foydalanuvchi",
+    "staff": "Xodim",
+    "start_work": "Ishni boshlash",
+    "end_work": "Ishni tugatish",
+    "salary_per_hour": "Soatbay ish haqi:",
+    "earned_this_month": "Bu oylik ishlagan pulingiz:",
+    "logout": "Tizimdan chiqish",
+    "dashboard": "Dashboard",
+    "menu": "Menyu",
+    "catalog": "Katalog",
+    "banners": "Bannerlar",
+    "inventory": "Ombor",
+    "reports": "Hisobotlar",
+    "staff_menu": "Xodimlar",
+    "reviews": "Mijozlar fikri"
+  }
+}

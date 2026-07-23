@@ -1,16 +1,23 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
-import { Search, Bell, Menu, LogOut, ChevronDown, Play, Square } from 'lucide-react';
+import { Search, Bell, Menu, LogOut, ChevronDown, Play, Square, Globe } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const Header = ({ setIsSidebarOpen }) => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [currentSession, setCurrentSession] = useState(null);
   const [totalEarned, setTotalEarned] = useState(0);
   const dropdownRef = useRef(null);
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'uz' ? 'ru' : 'uz';
+    i18n.changeLanguage(newLang);
+  };
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -101,13 +108,21 @@ const Header = ({ setIsSidebarOpen }) => {
             <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             <input 
               type="text" 
-              placeholder="Qidiruv..." 
+              placeholder={t('search')} 
               className="pl-10 pr-4 py-2 bg-gray-100 border-transparent rounded-lg focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all outline-none w-64 text-sm"
             />
           </div>
         </div>
         
         <div className="flex items-center gap-6 relative">
+          <button 
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 text-gray-500 hover:text-amber-500 transition-colors font-medium uppercase"
+          >
+            <Globe className="w-5 h-5" />
+            {i18n.language === 'uz' ? 'O\'z' : 'Ru'}
+          </button>
+
           <Link to="/admin" className="relative text-gray-500 hover:text-amber-500 transition-colors">
             <Bell className="w-6 h-6" />
             {newOrdersCount > 0 && (
@@ -124,14 +139,14 @@ const Header = ({ setIsSidebarOpen }) => {
                   onClick={handleEndWork}
                   className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg font-medium transition-colors border border-red-200"
                 >
-                  <Square className="w-4 h-4" /> Ishni tugatish
+                  <Square className="w-4 h-4" /> {t('end_work')}
                 </button>
               ) : (
                 <button 
                   onClick={handleStartWork}
                   className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2 rounded-lg font-medium transition-colors border border-emerald-200"
                 >
-                  <Play className="w-4 h-4" /> Ishni boshlash
+                  <Play className="w-4 h-4" /> {t('start_work')}
                 </button>
               )}
             </div>
@@ -143,8 +158,8 @@ const Header = ({ setIsSidebarOpen }) => {
               className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-lg transition-colors"
             >
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-gray-800">{user?.name || 'Foydalanuvchi'}</p>
-                <p className="text-xs text-gray-500">{user?.role || 'Xodim'}</p>
+                <p className="text-sm font-semibold text-gray-800">{user?.name || t('user')}</p>
+                <p className="text-xs text-gray-500">{user?.role || t('staff')}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-500 flex items-center justify-center text-amber-700 font-bold overflow-hidden">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -162,22 +177,22 @@ const Header = ({ setIsSidebarOpen }) => {
                 <div className="px-4 py-2 border-b border-gray-100 sm:hidden">
                   {currentSession ? (
                     <button onClick={handleEndWork} className="w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium">
-                      <Square className="w-4 h-4" /> Ishni tugatish
+                      <Square className="w-4 h-4" /> {t('end_work')}
                     </button>
                   ) : (
                     <button onClick={handleStartWork} className="w-full flex items-center justify-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-lg text-sm font-medium">
-                      <Play className="w-4 h-4" /> Ishni boshlash
+                      <Play className="w-4 h-4" /> {t('start_work')}
                     </button>
                   )}
                 </div>
 
                 <div className="px-4 py-3 border-b border-gray-100 bg-emerald-50/50">
                   <div className="flex justify-between items-center mb-1">
-                    <span className="text-xs text-gray-500">Soatbay ish haqi:</span>
+                    <span className="text-xs text-gray-500">{t('salary_per_hour')}</span>
                     <span className="text-xs font-semibold text-gray-700">{user?.salary ? Number(user.salary).toLocaleString() : 0} so'm</span>
                   </div>
                   <div>
-                    <p className="text-xs text-emerald-600 font-medium">Bu oylik ishlagan pulingiz:</p>
+                    <p className="text-xs text-emerald-600 font-medium">{t('earned_this_month')}</p>
                     <p className="text-lg font-bold text-gray-900">{totalEarned.toLocaleString()} UZS</p>
                   </div>
                 </div>
@@ -187,7 +202,7 @@ const Header = ({ setIsSidebarOpen }) => {
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
-                  Tizimdan chiqish
+                  {t('logout')}
                 </button>
               </div>
             )}

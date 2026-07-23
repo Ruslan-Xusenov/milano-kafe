@@ -8,12 +8,19 @@ import {
 } from 'lucide-react';
 import { CartContext } from '../context/CartContext';
 import ProductModal from '../components/ProductModal';
+import { useTranslation } from 'react-i18next';
 
 const ClientHome = () => {
   const { cartItems, addToCart, removeFromCart, updateQuantity, getTotal, user, login, updateUser, logout, address, updateAddress } = useContext(CartContext);
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [isLocating, setIsLocating] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(0);
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'uz' ? 'ru' : 'uz';
+    i18n.changeLanguage(newLang);
+  };
 
   const formatNumber = (num) => {
     return Number(num || 0).toLocaleString('uz-UZ');
@@ -265,7 +272,7 @@ const ClientHome = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A79277]/50 group-focus-within:text-[#FF4747] transition-colors" size={18} />
               <input
                 type="text"
-                placeholder="Sevimli taomingizni qidiring..."
+                placeholder={t('search_placeholder', 'Sevimli taomingizni qidiring...')}
                 className="w-full bg-[#FFF2E1]/50 border border-[#A79277]/20 rounded-full py-3 pl-12 pr-4 text-sm font-medium focus:ring-4 focus:ring-[#FF4747]/10 focus:border-[#FF4747]/50 focus:bg-white transition-all outline-none text-[#A79277]"
               />
             </div>
@@ -279,6 +286,12 @@ const ClientHome = () => {
             >
               <MapPin size={16} className="flex-shrink-0 text-[#FF4747]" />
               <span className="truncate">{address || 'Manzilni aniqlash'}</span>
+            </button>
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-[#A79277]/20 hover:bg-[#FFF2E1]/50 text-[#A79277] font-bold text-sm shadow-sm transition-colors"
+            >
+              {i18n.language === 'uz' ? 'O\'Z' : 'RU'}
             </button>
             {!user.isLoggedIn ? (
               <button
@@ -314,7 +327,7 @@ const ClientHome = () => {
                     : 'bg-white border-[#A79277]/20 text-[#A79277] hover:border-[#A79277]/50 hover:bg-[#F7E998]/30'
                   }`}
               >
-                <span className="text-lg">🌟</span> Barchasi
+                <span className="text-lg">🌟</span> {t('all', 'Barchasi')}
               </button>
               {categories.map((cat) => (
                 <button
@@ -414,7 +427,7 @@ const ClientHome = () => {
             {/* Catalog items */}
             <div className="flex items-center justify-between mb-6 pt-4">
               <h3 id="catalog-section" className="text-3xl font-extrabold text-[#A79277]">
-                {activeCategory ? activeCategory : 'Barcha taomlar'}
+                {activeCategory ? activeCategory : t('all_dishes', 'Barcha taomlar')}
               </h3>
             </div>
 
@@ -441,12 +454,16 @@ const ClientHome = () => {
 
                     <div className="flex flex-col flex-1 px-2 pb-2">
                       <div className="flex justify-between items-start mb-2">
-                        <span className="text-lg font-bold text-[#A79277] leading-tight pr-2">{item.name}</span>
+                        <span className="text-lg font-bold text-[#A79277] leading-tight pr-2">
+                          {i18n.language === 'ru' ? item.name_ru || item.name : item.name}
+                        </span>
                         {item.weight && <span className="text-xs font-semibold text-[#A79277] bg-[#F7E998]/50 border border-[#F7E998] px-2 py-1 rounded-md whitespace-nowrap">{item.weight}</span>}
                       </div>
 
-                      {item.description && (
-                        <p className="text-sm text-[#A79277]/70 line-clamp-2 mb-4 leading-relaxed">{item.description}</p>
+                      {(item.description || item.description_ru) && (
+                        <p className="text-sm text-[#A79277]/70 line-clamp-2 mb-4 leading-relaxed">
+                          {i18n.language === 'ru' ? item.description_ru || item.description : item.description}
+                        </p>
                       )}
 
                       <div className="mt-auto flex items-center justify-between pt-4">
@@ -495,9 +512,9 @@ const ClientHome = () => {
       <aside className="w-[380px] flex-shrink-0 bg-white border-l border-[#A79277]/10 hidden lg:flex flex-col shadow-[-10px_0_30px_-15px_rgba(167,146,119,0.1)] z-30 relative">
         <div className="p-6 border-b border-[#A79277]/10 bg-white/80 backdrop-blur-xl sticky top-0 z-10">
           <div className="flex justify-between items-center mb-1">
-            <h2 className="text-2xl font-extrabold text-[#A79277]">Savatcha</h2>
+            <h2 className="text-2xl font-extrabold text-[#A79277]">{t('cart', 'Savatcha')}</h2>
             {totalItems > 0 && (
-              <span className="bg-[#FF4747]/10 text-[#FF4747] text-xs font-bold px-3 py-1.5 rounded-full border border-[#FF4747]/20">{totalItems} ta mahsulot</span>
+              <span className="bg-[#FF4747]/10 text-[#FF4747] text-xs font-bold px-3 py-1.5 rounded-full border border-[#FF4747]/20">{totalItems} {t('items_count', 'ta mahsulot')}</span>
             )}
           </div>
         </div>
@@ -508,8 +525,8 @@ const ClientHome = () => {
               <div className="w-32 h-32 bg-[#F7E998]/50 rounded-full mb-6 flex justify-center items-center border-2 border-dashed border-[#A79277]/20">
                 <ShoppingCart size={48} className="text-[#FF4747]/50" />
               </div>
-              <h3 className="text-lg font-bold text-[#A79277] mb-2">Savatingiz bo'sh</h3>
-              <p className="text-sm text-[#A79277]/70">Premium taomlarimizdan tatib ko'rish uchun menyudan tanlang.</p>
+              <h3 className="text-lg font-bold text-[#A79277] mb-2">{t('cart_empty', 'Savatingiz bo\'sh')}</h3>
+              <p className="text-sm text-[#A79277]/70">{t('cart_empty_desc', 'Premium taomlarimizdan tatib ko\'rish uchun menyudan tanlang.')}</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -555,19 +572,19 @@ const ClientHome = () => {
         {/* Cart Footer */}
         <div className="p-6 bg-white border-t border-[#A79277]/10 shadow-[0_-10px_20px_-10px_rgba(167,146,119,0.05)]">
           <div className="flex justify-between items-center mb-6">
-            <span className="text-[#A79277]/80 font-medium">Jami summa:</span>
+            <span className="text-[#A79277]/80 font-medium">{t('total_amount', 'Jami summa:')}</span>
             <span className="text-2xl font-extrabold text-[#FF4747]">{formatNumber(totalAmount)} so'm</span>
           </div>
           {cartItems.length === 0 ? (
             <button className="w-full bg-[#FFF2E1] text-[#A79277]/50 font-bold py-4 rounded-2xl cursor-not-allowed">
-              Buyurtma berish
+              {t('order_now', 'Buyurtma berish')}
             </button>
           ) : (
             <button
               onClick={() => navigate('/checkout')}
               className="w-full bg-[#FF4747] hover:bg-[#FF4747]/90 text-[#FFF2E1] font-bold py-4 rounded-2xl transition-colors shadow-lg shadow-[#FF4747]/20 flex justify-center items-center gap-2 text-lg active:scale-[0.98]"
             >
-              Buyurtmani rasmiylashtirish <ChevronRight size={20} />
+              {t('checkout', 'Buyurtmani rasmiylashtirish')} <ChevronRight size={20} />
             </button>
           )}
         </div>
@@ -584,7 +601,7 @@ const ClientHome = () => {
               <div className="bg-[#F7E998] w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-[#A79277] shadow-sm">
                 {totalItems}
               </div>
-              <span className="text-lg">Savatga o'tish</span>
+              <span className="text-lg">{t('go_to_cart', 'Savatga o\'tish')}</span>
             </div>
             <span className="text-lg">{formatNumber(totalAmount)} so'm</span>
           </button>
