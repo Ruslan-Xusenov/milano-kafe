@@ -48,10 +48,15 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
                {order.phone}
              </div>
              {order.address && (
-               <div className="flex items-start gap-1.5 text-xs text-blue-600 font-medium max-w-[160px] leading-tight">
+               <a 
+                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.address)}`}
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 className="flex items-start gap-1.5 text-xs text-blue-600 font-medium max-w-[160px] leading-tight hover:underline cursor-pointer"
+               >
                  <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                  <span>{order.address}</span>
-               </div>
+               </a>
              )}
           </div>
           <p className="font-bold text-gray-900 text-base">{order.total.toLocaleString()} UZS</p>
