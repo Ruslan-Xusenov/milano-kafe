@@ -20,6 +20,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
       is_rated INTEGER DEFAULT 0,
       cashback_used INTEGER DEFAULT 0,
       cashback_earned INTEGER DEFAULT 0,
+      payment_method TEXT DEFAULT 'naqd',
+      comment TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     

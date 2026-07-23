@@ -75,11 +75,13 @@ const sendOrderToTelegram = (order) => {
   const paymentType = paymentTypeMap[order.payment_method] || 'Naqd pul';
 
   const itemsText = order.items.map(item => `- ${item.name} x${item.quantity} (${item.price.toLocaleString()} so'm)`).join('\n');
+  const commentText = order.comment ? `\n📝 Izoh: ${order.comment}\n` : '';
   const message = `🔔 **YANGI BUYURTMA #${order.id}**\n\n` +
                   `👤 Mijoz: ${order.customer_name}\n` +
                   `📞 Telefon: ${order.phone}\n` +
                   `📍 Yetkazib berish manzili: ${order.address}\n` +
-                  `💳 To'lov turi: ${paymentType}\n\n` +
+                  `💳 To'lov turi: ${paymentType}\n` +
+                  commentText + `\n` +
                   `🛒 Buyurtmalar:\n${itemsText}\n\n` +
                   `💰 Jami: ${order.total.toLocaleString()} so'm\n\n` +
                   `🌐 Admin paneldan tasdiqlang.`;

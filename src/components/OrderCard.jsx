@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, Phone, CheckCircle2, ChevronRight, XCircle, MapPin } from 'lucide-react';
+import { Loader2, Phone, CheckCircle2, ChevronRight, XCircle, MapPin, Info } from 'lucide-react';
 
 const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nextText, userRole }) => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -80,6 +80,17 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
                   </a>
                 )}
               </div>
+
+              {/* Mijoz Izohi */}
+              {order.comment && (
+                <div className="bg-amber-50/80 p-3.5 rounded-xl border border-amber-200">
+                  <div className="flex items-center gap-1.5 mb-1.5 text-amber-700">
+                    <Info className="w-4 h-4" />
+                    <span className="font-bold text-sm">Mijoz izohi:</span>
+                  </div>
+                  <p className="text-sm text-amber-900 font-medium leading-relaxed">{order.comment}</p>
+                </div>
+              )}
 
               {/* Taomlar ro'yxati */}
               <div>

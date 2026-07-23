@@ -36,14 +36,14 @@ app.get('/api/orders', (req, res) => {
 
 // Yangi buyurtma yaratish
 app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, items, total, address, user_id, cashback_used, payment_method } = req.body;
+  const { customer_name, phone, items, total, address, user_id, cashback_used, payment_method, comment } = req.body;
   const itemsJson = JSON.stringify(items);
   let usedAmount = parseInt(cashback_used) || 0;
   const method = payment_method || 'naqd';
   
   const insertOrder = (earned, used) => {
-    const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, ?)`;
-    db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null, used, earned, method], function(err) {
+    const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method, comment) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`;
+    db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null, used, earned, method, comment || null], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       
       const newOrder = {
@@ -57,7 +57,8 @@ app.post('/api/orders', (req, res) => {
         user_id,
         cashback_used: used,
         cashback_earned: earned,
-        payment_method: method
+        payment_method: method,
+        comment: comment || null
       };
       
       // Telegramga xabar yuborish
