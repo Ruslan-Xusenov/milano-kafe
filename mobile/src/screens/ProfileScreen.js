@@ -357,8 +357,7 @@ export default function ProfileScreen() {
             style={styles.authInput}
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholder={t('email_placeholder', "Email manzil")}
+            placeholder={t('email_placeholder', "Email manzil yoki Telefon raqam")}
             placeholderTextColor="rgba(167,146,119,0.5)"
             autoCapitalize="none"
           />
