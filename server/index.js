@@ -225,6 +225,22 @@ app.post('/api/print-jobs/:id/done', (req, res) => {
   });
 });
 
+// Top 5 mijozlar (keshbeksiz hisob)
+app.get('/api/analytics/top-customers', (req, res) => {
+  const sql = `
+    SELECT customer_name, phone, SUM(total - IFNULL(cashback_used, 0)) as total_spent, COUNT(id) as order_count 
+    FROM orders 
+    WHERE status = 'completed' 
+    GROUP BY phone 
+    ORDER BY total_spent DESC 
+    LIMIT 5
+  `;
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
 // --- MENU API ---
 app.get('/api/menu', (req, res) => {
   db.all("SELECT * FROM menu_items", [], (err, rows) => {
