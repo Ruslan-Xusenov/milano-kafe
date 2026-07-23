@@ -58,6 +58,11 @@ const db = new sqlite3.Database(dbPath, (err) => {
       if (!err) console.log('Added push_token column to users table.');
     });
 
+    // Add payment_method to orders
+    db.run(`ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'naqd'`, (err) => {
+      if (!err) console.log('Added payment_method column to orders table.');
+    });
+
     // Add cashback columns
     db.run(`ALTER TABLE users ADD COLUMN cashback_balance INTEGER DEFAULT 0`, (err) => {
       if (!err) console.log('Added cashback_balance column to users table.');
@@ -78,6 +83,13 @@ const db = new sqlite3.Database(dbPath, (err) => {
     });
     db.run(`ALTER TABLE menu_items ADD COLUMN description_ru TEXT`, (err) => {
       if (!err) console.log('Added description_ru to menu_items.');
+    });
+    // Add settings table
+    db.run(`CREATE TABLE IF NOT EXISTS settings (
+      setting_key TEXT PRIMARY KEY,
+      setting_value TEXT
+    )`, (err) => {
+      if (!err) console.log('Settings table ready.');
     });
   }
 });

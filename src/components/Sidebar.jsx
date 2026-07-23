@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Utensils, BarChart3, Users, Tags, LogOut, Package, Image as ImageIcon, X, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Utensils, BarChart3, Users, Tags, LogOut, Package, Image as ImageIcon, X, MessageSquare, Settings } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
@@ -75,6 +75,10 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
             <NavLink to="/admin/reviews" className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-amber-500 text-gray-900 font-semibold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
               <MessageSquare className="w-5 h-5" />
               {t('reviews') || 'Mijozlar Fikri'}
+            </NavLink>
+            <NavLink to="/admin/settings" className={({isActive}) => `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-amber-500 text-gray-900 font-semibold' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+              <Settings className="w-5 h-5" />
+              {t('settings') || 'Sozlamalar'}
             </NavLink>
           </>
         )}

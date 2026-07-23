@@ -9,6 +9,7 @@ import InventoryManagement from './components/InventoryManagement';
 import Reports from './components/Reports';
 import Staff from './components/Staff';
 import ReviewsManagement from './components/ReviewsManagement';
+import SettingsManagement from './components/SettingsManagement';
 import ClientHome from './pages/ClientHome';
 import Checkout from './pages/Checkout';
 import Login from './pages/Login';
@@ -72,6 +73,11 @@ function App() {
               <Route path="reviews" element={
                 <ProtectedRoute allowedRoles={['Admin']}>
                   <ReviewsManagement />
+                </ProtectedRoute>
+              } />
+              <Route path="settings" element={
+                <ProtectedRoute allowedRoles={['Admin']}>
+                  <SettingsManagement />
                 </ProtectedRoute>
               } />
             </Route>

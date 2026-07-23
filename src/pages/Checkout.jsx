@@ -11,6 +11,7 @@ const Checkout = () => {
   
   const [name, setName] = useState('');
   const [phone, setPhone] = useState(user.phone || '+998');
+  const [paymentMethod, setPaymentMethod] = useState('naqd');
 
   useEffect(() => {
     if (user.isLoggedIn && user.phone) {
@@ -57,7 +58,8 @@ const Checkout = () => {
           })),
           total: totalAmount,
           address: address || 'Kiritilmagan',
-          user_id: user?.isLoggedIn ? user?.id : null
+          user_id: user?.isLoggedIn ? user?.id : null,
+          payment_method: paymentMethod
         })
       });
 
@@ -187,6 +189,34 @@ const Checkout = () => {
                     <div className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-[#F7E998] bg-[#F7E998]/20 text-lg font-medium text-[#A79277]">
                       {address || t('address_not_found', 'Manzil aniqlanmagan')}
                     </div>
+                  </div>
+                </div>
+
+                {/* To'lov turi */}
+                <div className="mb-8">
+                  <label className="block text-sm font-bold text-[#A79277] mb-3">{t('payment_method', 'To\'lov turi')}</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('naqd')}
+                      className={`py-3 px-2 rounded-xl text-sm font-bold border-2 transition-all ${paymentMethod === 'naqd' ? 'border-[#FF4747] bg-[#FF4747]/10 text-[#FF4747]' : 'border-[#A79277]/20 text-[#A79277] hover:border-[#A79277]/50'}`}
+                    >
+                      Naqd pul
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('karta')}
+                      className={`py-3 px-2 rounded-xl text-sm font-bold border-2 transition-all ${paymentMethod === 'karta' ? 'border-[#FF4747] bg-[#FF4747]/10 text-[#FF4747]' : 'border-[#A79277]/20 text-[#A79277] hover:border-[#A79277]/50'}`}
+                    >
+                      Karta orqali
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentMethod('click')}
+                      className={`py-3 px-2 rounded-xl text-sm font-bold border-2 transition-all ${paymentMethod === 'click' ? 'border-[#FF4747] bg-[#FF4747]/10 text-[#FF4747]' : 'border-[#A79277]/20 text-[#A79277] hover:border-[#A79277]/50'}`}
+                    >
+                      Click / Payme
+                    </button>
                   </div>
                 </div>
 

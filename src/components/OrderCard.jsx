@@ -59,7 +59,33 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
                </a>
              )}
           </div>
-          <p className="font-bold text-gray-900 text-base">{order.total.toLocaleString()} UZS</p>
+          <div className="flex flex-col items-end gap-2">
+            <p className="font-bold text-gray-900 text-base">{order.total.toLocaleString()} UZS</p>
+            {userRole === 'Admin' || userRole === 'Kassir' ? (
+              <select 
+                value={order.payment_method || 'naqd'}
+                onChange={async (e) => {
+                  try {
+                    await fetch(`/api/orders/${order.id}/payment`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ payment_method: e.target.value })
+                    });
+                    if (onStatusChange) onStatusChange(order.id, order.status); // to trigger a refresh
+                  } catch(err) { console.error(err); }
+                }}
+                className="text-xs border border-gray-200 rounded p-1 bg-gray-50 font-medium focus:outline-none focus:border-amber-400"
+              >
+                <option value="naqd">Naqd pul</option>
+                <option value="karta">Plastik Karta</option>
+                <option value="click">Click / Payme</option>
+              </select>
+            ) : (
+              <span className="text-xs font-bold px-2 py-1 bg-gray-100 text-gray-600 rounded">
+                {order.payment_method === 'karta' ? 'Karta' : order.payment_method === 'click' ? 'Click' : 'Naqd'}
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Tugmalar */}

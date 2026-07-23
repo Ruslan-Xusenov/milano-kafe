@@ -22,6 +22,7 @@ export default function CartScreen({ navigation }) {
   const [orderName, setOrderName] = useState(user?.name || '');
   const [orderPhone, setOrderPhone] = useState(user?.phone || '');
   const [orderAddress, setOrderAddress] = useState(address || '');
+  const [paymentMethod, setPaymentMethod] = useState('naqd');
 
   useEffect(() => {
     if (user?.name) setOrderName(user.name);
@@ -55,7 +56,8 @@ export default function CartScreen({ navigation }) {
         total: totalAmount,
         address: orderAddress.trim(),
         user_id: user.id,
-        cashback_used: useCashback ? maxCashback : 0
+        cashback_used: useCashback ? maxCashback : 0,
+        payment_method: paymentMethod
       };
 
       const res = await api.post('/orders', orderData);
@@ -167,6 +169,28 @@ export default function CartScreen({ navigation }) {
             multiline
             placeholderTextColor="#A79277"
           />
+
+          <Text style={styles.formTitle}>{t('payment_method', "To'lov turi")}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+            <TouchableOpacity 
+              style={[styles.paymentBtn, paymentMethod === 'naqd' && styles.paymentBtnActive]}
+              onPress={() => setPaymentMethod('naqd')}
+            >
+              <Text style={[styles.paymentBtnText, paymentMethod === 'naqd' && styles.paymentBtnTextActive]}>Naqd</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.paymentBtn, paymentMethod === 'karta' && styles.paymentBtnActive]}
+              onPress={() => setPaymentMethod('karta')}
+            >
+              <Text style={[styles.paymentBtnText, paymentMethod === 'karta' && styles.paymentBtnTextActive]}>Karta</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.paymentBtn, paymentMethod === 'click' && styles.paymentBtnActive]}
+              onPress={() => setPaymentMethod('click')}
+            >
+              <Text style={[styles.paymentBtnText, paymentMethod === 'click' && styles.paymentBtnTextActive]}>Click</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
 
@@ -245,6 +269,10 @@ const styles = StyleSheet.create({
   formContainer: { backgroundColor: '#fff', borderRadius: 24, padding: 20, marginTop: 8, borderWidth: 1, borderColor: 'rgba(167,146,119,0.1)' },
   formTitle: { fontSize: 17, fontWeight: '800', color: '#A79277', marginBottom: 16 },
   input: { backgroundColor: 'rgba(255,242,225,0.5)', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: '#A79277', marginBottom: 12, borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)', fontWeight: '500' },
+  paymentBtn: { flex: 1, paddingVertical: 12, marginHorizontal: 4, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(167,146,119,0.2)', alignItems: 'center', backgroundColor: '#fff' },
+  paymentBtnActive: { borderColor: '#FF4747', backgroundColor: 'rgba(255,71,71,0.05)' },
+  paymentBtnText: { color: '#A79277', fontSize: 14, fontWeight: '700' },
+  paymentBtnTextActive: { color: '#FF4747' },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(255,255,255,0.97)', padding: 20, paddingBottom: 110, borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: '#A79277', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 10, borderTopWidth: 1, borderTopColor: 'rgba(167,146,119,0.1)' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' },

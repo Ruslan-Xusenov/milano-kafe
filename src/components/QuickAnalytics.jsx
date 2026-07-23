@@ -40,6 +40,11 @@ const QuickAnalytics = () => {
   // Kunlik tushum
   const dailyRevenue = todayOrders.reduce((sum, order) => sum + order.total, 0);
   
+  // Tushum turlari bo'yicha
+  const cashRevenue = todayOrders.filter(o => o.payment_method === 'naqd' || !o.payment_method).reduce((sum, order) => sum + order.total, 0);
+  const cardRevenue = todayOrders.filter(o => o.payment_method === 'karta').reduce((sum, order) => sum + order.total, 0);
+  const clickRevenue = todayOrders.filter(o => o.payment_method === 'click').reduce((sum, order) => sum + order.total, 0);
+
   // O'tgan kunga nisbatan tushum trendini hisoblash uchun kechagi kun (soddalashtirilgan)
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -83,6 +88,7 @@ const QuickAnalytics = () => {
     { 
       title: "Kunlik Tushum", 
       value: isLoading ? "..." : `${dailyRevenue.toLocaleString()} so'm`, 
+      subValue: isLoading ? "" : `N: ${cashRevenue.toLocaleString()} | K: ${cardRevenue.toLocaleString()} | C: ${clickRevenue.toLocaleString()}`,
       trend: isLoading ? "..." : revenueTrend, 
       isPositive: isRevenuePositive,
       icon: <DollarSign className="w-6 h-6 text-emerald-500" />,
@@ -122,6 +128,9 @@ const QuickAnalytics = () => {
             <div>
               <p className="text-sm font-medium text-gray-500 mb-1">{stat.title}</p>
               <h3 className="text-2xl font-bold text-gray-800">{stat.value}</h3>
+              {stat.subValue && (
+                <p className="text-xs font-medium text-gray-400 mt-1">{stat.subValue}</p>
+              )}
             </div>
             <div className={`${stat.bg} p-2 rounded-lg`}>
               {stat.icon}

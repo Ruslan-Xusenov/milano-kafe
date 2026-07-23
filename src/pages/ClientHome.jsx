@@ -36,6 +36,11 @@ const ClientHome = () => {
   const [banners, setBanners] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isMoreModalOpen, setIsMoreModalOpen] = useState(false);
+  const [settings, setSettings] = useState({});
+  const [isTextModalOpen, setIsTextModalOpen] = useState(false);
+  const [textModalTitle, setTextModalTitle] = useState('');
+  const [textModalContent, setTextModalContent] = useState('');
 
   // Profile Modal & Tabs
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -176,10 +181,11 @@ const ClientHome = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [menuRes, catRes, banRes] = await Promise.all([
+        const [menuRes, catRes, banRes, setRes] = await Promise.all([
           fetch('/api/menu'),
           fetch('/api/categories'),
-          fetch('/api/banners')
+          fetch('/api/banners'),
+          fetch('/api/settings')
         ]);
         if (menuRes.ok) {
           const data = await menuRes.json();
@@ -191,6 +197,9 @@ const ClientHome = () => {
         }
         if (banRes.ok) {
           setBanners(await banRes.json());
+        }
+        if (setRes.ok) {
+          setSettings(await setRes.json());
         }
       } catch (e) { console.error(e); }
     };
@@ -655,6 +664,13 @@ const ClientHome = () => {
           <User size={24} className="mb-1.5" strokeWidth={2.5} />
           <span className="text-[10px] font-bold uppercase tracking-wide">{t('profile', 'Profil')}</span>
         </button>
+        <button
+          onClick={() => setIsMoreModalOpen(true)}
+          className="flex flex-col items-center justify-center w-full h-full text-[#A79277]/50 hover:text-[#FF4747] transition-colors"
+        >
+          <MenuIcon size={24} className="mb-1.5" strokeWidth={2.5} />
+          <span className="text-[10px] font-bold uppercase tracking-wide">{t('more', 'Yana')}</span>
+        </button>
       </div>
 
       {/* Product Details Modal */}
@@ -1064,6 +1080,77 @@ const ClientHome = () => {
               >
                 {isRatingSubmitting ? t('sending', 'Yuborilmoqda...') : t('send', 'Yuborish')}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* More Modal */}
+      {isMoreModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-end justify-center sm:items-center" onClick={() => setIsMoreModalOpen(false)}>
+          <div className="bg-[#FFF2E1] rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[90vh] overflow-hidden shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-[#A79277]/20 flex justify-between items-center bg-white">
+              <h2 className="text-xl font-extrabold text-[#A79277]">{t('more', 'Yana')}</h2>
+              <button onClick={() => setIsMoreModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-4 space-y-3 overflow-y-auto custom-scrollbar">
+              <button 
+                onClick={() => {
+                  const lang = i18n.language || 'uz';
+                  setTextModalTitle(t('about_us', 'Biz haqimizda'));
+                  setTextModalContent(settings[`about_us_${lang}`] || '');
+                  setIsTextModalOpen(true);
+                }} 
+                className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-[#A79277]/10 hover:border-[#A79277]/30 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
+                    <Info size={20} />
+                  </div>
+                  <span className="font-bold text-gray-800">{t('about_us', 'Biz haqimizda')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-400" />
+              </button>
+
+              <button 
+                onClick={() => {
+                  const lang = i18n.language || 'uz';
+                  setTextModalTitle(t('contact_admin', 'Admin bilan bog\'lanish'));
+                  setTextModalContent(settings[`contact_admin_${lang}`] || '');
+                  setIsTextModalOpen(true);
+                }} 
+                className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-[#A79277]/10 hover:border-[#A79277]/30 transition-all"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
+                    <Phone size={20} />
+                  </div>
+                  <span className="font-bold text-gray-800">{t('contact_admin', 'Admin bilan bog\'lanish')}</span>
+                </div>
+                <ChevronRight size={20} className="text-gray-400" />
+              </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Text Modal (Settings) */}
+      {isTextModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] flex justify-center items-center p-4" onClick={() => setIsTextModalOpen(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-[#A79277]">{textModalTitle}</h2>
+              <button onClick={() => setIsTextModalOpen(false)} className="p-2 bg-gray-50 rounded-full hover:bg-gray-100">
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+              <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
+                {textModalContent || t('not_entered', 'Kiritilmagan')}
+              </p>
             </div>
           </div>
         </div>

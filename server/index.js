@@ -36,13 +36,14 @@ app.get('/api/orders', (req, res) => {
 
 // Yangi buyurtma yaratish
 app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, items, total, address, user_id, cashback_used } = req.body;
+  const { customer_name, phone, items, total, address, user_id, cashback_used, payment_method } = req.body;
   const itemsJson = JSON.stringify(items);
   let usedAmount = parseInt(cashback_used) || 0;
+  const method = payment_method || 'naqd';
   
   const insertOrder = (earned, used) => {
-    const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?)`;
-    db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null, used, earned], function(err) {
+    const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, ?)`;
+    db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null, used, earned, method], function(err) {
       if (err) return res.status(500).json({ error: err.message });
       
       const newOrder = {
@@ -55,7 +56,8 @@ app.post('/api/orders', (req, res) => {
         status: 'new',
         user_id,
         cashback_used: used,
-        cashback_earned: earned
+        cashback_earned: earned,
+        payment_method: method
       };
       
       // Telegramga xabar yuborish
@@ -136,6 +138,17 @@ app.get('/api/reviews', (req, res) => {
   db.all("SELECT * FROM reviews ORDER BY created_at DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
+  });
+});
+
+// To'lov turini o'zgartirish
+app.put('/api/orders/:id/payment', (req, res) => {
+  const { id } = req.params;
+  const { payment_method } = req.body;
+  
+  db.run("UPDATE orders SET payment_method = ? WHERE id = ?", [payment_method, id], (err) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ status: 'success', payment_method });
   });
 });
 
@@ -773,6 +786,26 @@ app.delete('/api/banners/:id', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
+});
+
+// Settings Endpoints
+app.get('/api/settings', (req, res) => {
+  db.all('SELECT * FROM settings', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const settings = {};
+    rows.forEach(r => settings[r.setting_key] = r.setting_value);
+    res.json(settings);
+  });
+});
+
+app.put('/api/settings', (req, res) => {
+  const settings = req.body;
+  const stmt = db.prepare('INSERT OR REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)');
+  for (const [key, value] of Object.entries(settings)) {
+    stmt.run(key, value);
+  }
+  stmt.finalize();
+  res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 5000;

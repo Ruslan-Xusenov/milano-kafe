@@ -3,7 +3,7 @@ import './src/i18n';
 import { useTranslation } from 'react-i18next';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, List, ShoppingCart, User } from 'lucide-react-native';
+import { Home, List, ShoppingCart, User, Menu as MenuIcon } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { StyleSheet, View, Text, TextInput, Platform } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import CatalogScreen from './src/screens/CatalogScreen';
 import CartScreen from './src/screens/CartScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import MoreScreen from './src/screens/MoreScreen';
 import { CartProvider } from './src/context/CartContext';
 
 const Tab = createBottomTabNavigator();
@@ -44,6 +45,7 @@ function TabNavigator() {
           else if (route.name === 'Katalog') IconComponent = List;
           else if (route.name === 'Savat') IconComponent = ShoppingCart;
           else if (route.name === 'Profil') IconComponent = User;
+          else if (route.name === 'Yana') IconComponent = MenuIcon;
           return (
             <IconComponent color={focused ? '#FF4747' : '#A79277'} size={24} strokeWidth={focused ? 2.5 : 2} />
           );
@@ -78,6 +80,7 @@ function TabNavigator() {
       <Tab.Screen name="Katalog" component={CatalogScreen} options={{ tabBarLabel: t('catalog') || 'Katalog' }} />
       <Tab.Screen name="Savat" component={CartScreen} options={{ tabBarLabel: t('cart') || 'Savat' }} />
       <Tab.Screen name="Profil" component={ProfileScreen} options={{ tabBarLabel: t('profile') || 'Profil' }} />
+      <Tab.Screen name="Yana" component={MoreScreen} options={{ tabBarLabel: t('more') || 'Yana' }} />
     </Tab.Navigator>
   );
 }
