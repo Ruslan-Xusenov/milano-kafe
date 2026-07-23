@@ -261,11 +261,11 @@ const ClientHome = () => {
       <main className="flex-1 flex flex-col min-w-0 bg-[#FFF2E1] overflow-hidden relative">
 
         {/* PREMIUM HEADER */}
-        <header className="h-[80px] flex-shrink-0 flex items-center justify-between px-4 lg:px-10 bg-white/80 backdrop-blur-xl border-b border-[#A79277]/10 z-40 sticky top-0">
-          <div className="flex items-center gap-6 flex-1">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#FF4747] to-[#FF4747]/80 rounded-xl flex items-center justify-center font-bold text-xl text-[#FFF2E1] shadow-lg shadow-[#FF4747]/30">M</div>
-              <span className="text-2xl font-extrabold tracking-tight hidden sm:block text-[#A79277]">Milano Kafe</span>
+        <header className="h-[60px] sm:h-[80px] flex-shrink-0 flex items-center justify-between px-2 sm:px-4 lg:px-10 bg-white/80 backdrop-blur-xl border-b border-[#A79277]/10 z-40 sticky top-0">
+          <div className="flex items-center gap-2 sm:gap-6 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 cursor-pointer">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-[#FF4747] to-[#FF4747]/80 rounded-xl flex items-center justify-center font-bold text-lg sm:text-xl text-[#FFF2E1] shadow-md shadow-[#FF4747]/30">M</div>
+              <span className="text-xl sm:text-2xl font-extrabold tracking-tight hidden sm:block text-[#A79277]">Milano Kafe</span>
             </div>
 
             <div className="hidden md:flex flex-1 max-w-xl relative group">
@@ -278,27 +278,27 @@ const ClientHome = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 lg:gap-5 ml-4">
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-5 ml-2 sm:ml-4">
             <button
               onClick={handleGetLocation}
               disabled={isLocating}
-              className="flex items-center gap-2 bg-[#F7E998]/50 hover:bg-[#F7E998] text-[#A79277] transition-colors py-2.5 px-4 rounded-full font-semibold text-sm disabled:opacity-70 border border-[#F7E998] max-w-[140px] sm:max-w-[200px]"
+              className="flex items-center gap-1 sm:gap-2 bg-[#F7E998]/50 hover:bg-[#F7E998] text-[#A79277] transition-colors py-1.5 px-3 sm:py-2.5 sm:px-4 rounded-full font-semibold text-xs sm:text-sm disabled:opacity-70 border border-[#F7E998] max-w-[100px] sm:max-w-[200px]"
             >
-              <MapPin size={16} className="flex-shrink-0 text-[#FF4747]" />
-              <span className="truncate">{address || t('detect_location', 'Manzilni aniqlash')}</span>
+              <MapPin size={14} className="sm:w-4 sm:h-4 flex-shrink-0 text-[#FF4747]" />
+              <span className="truncate">{address || t('detect_location', 'Manzil')}</span>
             </button>
             <button
               onClick={toggleLanguage}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-[#A79277]/20 hover:bg-[#FFF2E1]/50 text-[#A79277] font-bold text-sm shadow-sm transition-colors"
+              className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border border-[#A79277]/20 hover:bg-[#FFF2E1]/50 text-[#A79277] font-bold text-xs sm:text-sm shadow-sm transition-colors"
             >
               {i18n.language === 'uz' ? 'O\'Z' : 'RU'}
             </button>
             {!user.isLoggedIn ? (
               <button
                 onClick={() => setIsLoginModalOpen(true)}
-                className="flex items-center justify-center px-5 py-2.5 rounded-full bg-[#FF4747] text-[#FFF2E1] hover:bg-[#FF4747]/90 shadow-md shadow-[#FF4747]/20 transition-all font-semibold text-sm whitespace-nowrap"
+                className="flex items-center justify-center px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full bg-[#FF4747] text-[#FFF2E1] hover:bg-[#FF4747]/90 shadow-md shadow-[#FF4747]/20 transition-all font-semibold text-xs sm:text-sm whitespace-nowrap"
               >
-                {t('login', 'Tizimga kirish')}
+                {t('login', 'Kirish')}
               </button>
             ) : (
               <button
@@ -318,29 +318,29 @@ const ClientHome = () => {
         <div id="main-scroll" className="flex-1 overflow-y-auto pb-32 scroll-smooth custom-scrollbar">
 
           {/* HORIZONTAL CATEGORIES BAR */}
-          <div className="sticky top-0 z-30 bg-[#FFF2E1]/90 backdrop-blur-md border-b border-[#A79277]/10 py-3 px-4 lg:px-10 overflow-x-auto no-scrollbar shadow-sm">
-            <div className="flex gap-3">
+          <div className="sticky top-0 z-30 bg-[#FFF2E1]/90 backdrop-blur-md border-b border-[#A79277]/10 py-2 sm:py-3 px-2 sm:px-4 lg:px-10 overflow-x-auto no-scrollbar shadow-sm">
+            <div className="flex gap-2 sm:gap-3">
               <button
                 onClick={() => setActiveCategory(null)}
-                className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all border ${activeCategory === null
-                    ? 'bg-[#FF4747] text-[#FFF2E1] border-[#FF4747] shadow-md'
+                className={`flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all border ${activeCategory === null
+                    ? 'bg-[#FF4747] text-[#FFF2E1] border-[#FF4747] shadow-sm sm:shadow-md'
                     : 'bg-white border-[#A79277]/20 text-[#A79277] hover:border-[#A79277]/50 hover:bg-[#F7E998]/30'
                   }`}
               >
-                <span className="text-lg">🌟</span> {t('all', 'Barchasi')}
+                <span className="text-base sm:text-lg">🌟</span> {t('all', 'Barchasi')}
               </button>
               {categories.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
-                  className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm transition-all border ${activeCategory === cat.name
-                      ? 'bg-[#FF4747] text-[#FFF2E1] border-[#FF4747] shadow-md'
+                  className={`flex-shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-5 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all border ${activeCategory === cat.name
+                      ? 'bg-[#FF4747] text-[#FFF2E1] border-[#FF4747] shadow-sm sm:shadow-md'
                       : 'bg-white border-[#A79277]/20 text-[#A79277] hover:border-[#A79277]/50 hover:bg-[#F7E998]/30'
                     }`}
                 >
-                  <span className="text-lg flex items-center justify-center">
+                  <span className="text-base sm:text-lg flex items-center justify-center">
                     {cat.emoji?.startsWith('http') ? (
-                      <img src={cat.emoji} alt={cat.name} className="w-6 h-6 rounded-full object-cover border border-[#A79277]/20" />
+                      <img src={cat.emoji} alt={cat.name} className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border border-[#A79277]/20" />
                     ) : (
                       cat.emoji
                     )}
