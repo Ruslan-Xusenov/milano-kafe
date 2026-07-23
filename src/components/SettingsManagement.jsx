@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { toast } from 'react-hot-toast';
 import { Save } from 'lucide-react';
 
 const SettingsManagement = () => {
@@ -18,27 +16,36 @@ const SettingsManagement = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await axios.get('/api/settings');
-      if (response.data) {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const data = await response.json();
         setSettings(prev => ({
           ...prev,
-          ...response.data
+          ...data
         }));
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      toast.error('Sozlamalarni yuklashda xatolik yuz berdi');
+      alert('Sozlamalarni yuklashda xatolik yuz berdi');
     }
   };
 
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      await axios.put('/api/settings', settings);
-      toast.success('Sozlamalar muvaffaqiyatli saqlandi!');
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+      if (response.ok) {
+        alert('Sozlamalar muvaffaqiyatli saqlandi!');
+      } else {
+        throw new Error('Failed to save settings');
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Sozlamalarni saqlashda xatolik yuz berdi');
+      alert('Sozlamalarni saqlashda xatolik yuz berdi');
     } finally {
       setIsLoading(false);
     }
