@@ -6,8 +6,9 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const db = require('./db');
-const { sendOrderToTelegram, sendStatusUpdateToTelegram, sendSecurityAlertToUser } = require('./bot');
+const { sendOrderToTelegram, sendStatusUpdateToTelegram, sendSecurityAlertToUser, bot } = require('./bot');
 const { printReceipt } = require('./printer');
+const { sendPushNotification } = require('./notifications');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'milano_kafe_super_secret_key';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'dummy_client_id';
@@ -228,16 +229,70 @@ app.post('/api/print-jobs/:id/done', (req, res) => {
 // Top 5 mijozlar (keshbeksiz hisob)
 app.get('/api/analytics/top-customers', (req, res) => {
   const sql = `
-    SELECT customer_name, phone, SUM(total - IFNULL(cashback_used, 0)) as total_spent, COUNT(id) as order_count 
-    FROM orders 
-    WHERE status = 'completed' 
-    GROUP BY phone 
+    SELECT 
+      o.customer_name, 
+      o.phone, 
+      SUM(o.total - IFNULL(o.cashback_used, 0)) as total_spent, 
+      COUNT(o.id) as order_count,
+      u.id as user_id,
+      u.telegram_id,
+      u.push_token
+    FROM orders o
+    LEFT JOIN users u ON o.user_id = u.id OR o.phone = u.phone
+    WHERE o.status = 'completed' 
+    GROUP BY o.phone 
     ORDER BY total_spent DESC 
     LIMIT 5
   `;
   db.all(sql, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
+  });
+});
+
+// Push tokenni saqlash
+app.post('/api/users/push-token', (req, res) => {
+  const { user_id, push_token } = req.body;
+  if (!user_id || !push_token) return res.status(400).json({ error: "Missing required fields" });
+
+  db.run("UPDATE users SET push_token = ? WHERE id = ?", [push_token, user_id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+// Bepul buyurtma (sovg'a) yaratish va yuborish
+app.post('/api/orders/gift', (req, res) => {
+  const { user_id, customer_name, phone, items, message_text, telegram_id, push_token } = req.body;
+  
+  if (!phone || !items || !items.length) {
+    return res.status(400).json({ error: "Phone and items are required" });
+  }
+
+  const itemsJson = JSON.stringify(items);
+  // total is 0 since it's a gift
+  const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, 0, 'delivering', "Sovg'a yuborildi", ?, 0, 0)`;
+  
+  db.run(sql, [customer_name || 'Mijoz', phone, itemsJson, user_id || null], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    const orderId = this.lastID;
+
+    // Send Push Notification if push_token exists
+    if (push_token) {
+      sendPushNotification(
+        push_token, 
+        "🎁 Sizga sovg'a keldi!", 
+        message_text || "Milano Kafe tomonidan sizga bepul ovqat jo'natildi."
+      );
+    }
+
+    // Send Telegram Bot Message if telegram_id exists
+    if (telegram_id) {
+      const msg = `🎁 *Sizga sovg'a keldi!*\n\n${message_text || "Milano Kafe tomonidan sizga bepul ovqat jo'natildi."}\n\n*Buyurtma:*\n${items.map(i => `- ${i.name} x${i.quantity}`).join('\n')}`;
+      bot.sendMessage(telegram_id, msg, { parse_mode: 'Markdown' }).catch(e => console.error("Tg bot error:", e));
+    }
+
+    res.status(201).json({ success: true, orderId });
   });
 });
 

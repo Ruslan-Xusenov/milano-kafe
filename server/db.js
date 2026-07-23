@@ -53,6 +53,11 @@ const db = new sqlite3.Database(dbPath, (err) => {
       if (!err) console.log('Added is_rated column to orders table.');
     });
 
+    // Add push_token column for notifications
+    db.run(`ALTER TABLE users ADD COLUMN push_token TEXT`, (err) => {
+      if (!err) console.log('Added push_token column to users table.');
+    });
+
     // Add cashback columns
     db.run(`ALTER TABLE users ADD COLUMN cashback_balance INTEGER DEFAULT 0`, (err) => {
       if (!err) console.log('Added cashback_balance column to users table.');

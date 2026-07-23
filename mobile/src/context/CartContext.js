@@ -1,5 +1,55 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
+import { api } from '../api';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for push notification!');
+      return;
+    }
+    try {
+      token = (await Notifications.getExpoPushTokenAsync({
+        projectId: 'b0e0db14-23bd-47a3-baf0-64d7c0f135b9', // Need this to work in dev without app.json projectId? We'll let Expo figure it out if app.json has it. Actually, better pass empty or remove projectId arg if unknown.
+      })).data;
+    } catch (e) {
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+    }
+    console.log("Expo Push Token:", token);
+  } else {
+    console.log('Must use physical device for Push Notifications');
+  }
+
+  return token;
+}
 
 export const CartContext = createContext();
 
@@ -24,6 +74,17 @@ export const CartProvider = ({ children }) => {
     };
     loadStorage();
   }, []);
+
+  useEffect(() => {
+    if (user.isLoggedIn && user.id) {
+      registerForPushNotificationsAsync().then(token => {
+        if (token) {
+          api.post('/users/push-token', { user_id: user.id, push_token: token })
+            .catch(err => console.log('Failed to save push token:', err));
+        }
+      });
+    }
+  }, [user.isLoggedIn, user.id]);
 
   useEffect(() => {
     if (isReady) {
