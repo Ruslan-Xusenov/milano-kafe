@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, UserCog } from 'lucide-react';
 
@@ -5,11 +6,11 @@ const Staff = () => {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', role: 'Kassir', phone: '', username: '', password: '', salary: '' });
+  const [formData, setFormData] = useState({ name: '', role: 'cashier', phone: '', username: '', password: '', salary: '' });
 
   const fetchStaff = async () => {
     try {
-      const res = await fetch('/api/staff');
+      const res = await apiFetch('/api/staff');
       if (res.ok) setStaff(await res.json());
     } catch (e) {
       console.error(e);
@@ -23,13 +24,13 @@ const Staff = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await fetch('/api/staff', {
+      await apiFetch('/api/staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
       setShowModal(false);
-      setFormData({ name: '', role: 'Kassir', phone: '', username: '', password: '', salary: '' });
+      setFormData({ name: '', role: 'cashier', phone: '', username: '', password: '', salary: '' });
       fetchStaff();
     } catch (e) { console.error(e); }
   };
@@ -37,7 +38,7 @@ const Staff = () => {
   const handleDelete = async (id) => {
     if (!confirm("Haqiqatan ham o'chirmoqchimisiz?")) return;
     try {
-      await fetch(`/api/staff/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/staff/${id}`, { method: 'DELETE' });
       fetchStaff();
     } catch (e) { console.error(e); }
   };
@@ -78,8 +79,8 @@ const Staff = () => {
                   </div>
                 </td>
                 <td className="p-4">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {person.role}
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                    {person.role === 'waiter' ? 'Ofitsiant/Kuryer' : person.role === 'cashier' ? 'Kassir' : person.role}
                   </span>
                 </td>
                 <td className="p-4 text-gray-600">{person.phone || '-'}</td>
@@ -127,10 +128,9 @@ const Staff = () => {
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Lavozimi</label>
                 <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full p-2 border rounded-lg">
-                  <option value="Admin">Admin</option>
-                  <option value="Kassir">Kassir</option>
-                  <option value="Kuryer">Kuryer</option>
-                  <option value="Oshpaz">Oshpaz</option>
+                  <option value="admin">Admin</option>
+                  <option value="cashier">Kassir</option>
+                  <option value="waiter">Ofitsiant/Kuryer</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

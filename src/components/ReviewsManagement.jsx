@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Star, MessageSquare } from 'lucide-react';
 
@@ -12,7 +13,7 @@ const ReviewsManagement = () => {
 
   const fetchReviews = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/reviews');
+      const res = await apiFetch('/api/reviews');
       if (!res.ok) throw new Error('Tarmoq xatosi');
       const data = await res.json();
       setReviews(data);

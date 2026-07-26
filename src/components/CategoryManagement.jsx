@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, ListTree } from 'lucide-react';
 
@@ -9,7 +10,7 @@ const CategoryManagement = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch('/api/categories');
+      const res = await apiFetch('/api/categories');
       if (res.ok) setCategories(await res.json());
     } catch (e) {
       console.error(e);
@@ -23,7 +24,7 @@ const CategoryManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await fetch('/api/categories', {
+      await apiFetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -37,7 +38,7 @@ const CategoryManagement = () => {
   const handleDelete = async (id) => {
     if (!confirm("Haqiqatan ham o'chirmoqchimisiz?")) return;
     try {
-      await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/categories/${id}`, { method: 'DELETE' });
       fetchCategories();
     } catch (e) { console.error(e); }
   };

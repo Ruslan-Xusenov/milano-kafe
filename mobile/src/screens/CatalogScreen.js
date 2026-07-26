@@ -5,6 +5,15 @@ import { api } from '../api';
 import { CartContext } from '../context/CartContext';
 import { useTranslation } from 'react-i18next';
 
+const DARK_BG = '#1A1A1A';
+const DARK_CARD = '#252525';
+const DARK_SURFACE = '#2E2E2E';
+const ACCENT = '#FF4747';
+const BROWN = '#A79277';
+const TEXT_PRIMARY = '#FFFFFF';
+const TEXT_SECONDARY = '#AAAAAA';
+const BORDER_COLOR = 'rgba(255,255,255,0.07)';
+
 const formatNumber = (num) => {
   return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 };
@@ -51,7 +60,7 @@ export default function CatalogScreen({ route }) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#FF4747" />
+        <ActivityIndicator size="large" color={ACCENT} />
       </View>
     );
   }
@@ -131,7 +140,7 @@ export default function CatalogScreen({ route }) {
                         onPress={(e) => { e.stopPropagation?.(); addToCart(item); }}
                         activeOpacity={0.7}
                       >
-                        <Plus size={20} color="#FF4747" strokeWidth={3} />
+                        <Plus size={20} color={ACCENT} strokeWidth={3} />
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.qtyControlInline}>
@@ -139,14 +148,14 @@ export default function CatalogScreen({ route }) {
                           onPress={(e) => { e.stopPropagation?.(); updateQuantity(item.id, -1); }}
                           style={styles.qtyBtnMinus}
                         >
-                          <Minus size={14} color="#A79277" strokeWidth={2.5} />
+                          <Minus size={14} color={TEXT_SECONDARY} strokeWidth={2.5} />
                         </TouchableOpacity>
                         <Text style={styles.qtyTextInline}>{qty}</Text>
                         <TouchableOpacity
                           onPress={(e) => { e.stopPropagation?.(); updateQuantity(item.id, 1); }}
                           style={styles.qtyBtnPlus}
                         >
-                          <Plus size={14} color="#FFF2E1" strokeWidth={2.5} />
+                          <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -165,7 +174,7 @@ export default function CatalogScreen({ route }) {
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
             <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedProduct(null)}>
-              <X size={20} color="#A79277" />
+              <X size={18} color={TEXT_SECONDARY} />
             </TouchableOpacity>
 
             {selectedProduct && (
@@ -205,16 +214,16 @@ export default function CatalogScreen({ route }) {
                         onPress={() => { addToCart(selectedProduct); setSelectedProduct(null); }}
                         activeOpacity={0.8}
                       >
-                        <Text style={styles.modalAddText}>{t('add_to_cart', 'Savatga qo\'shish')}</Text>
+                        <Text style={styles.modalAddText}>{t('add_to_cart', "Savatga qo'shish")}</Text>
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.modalQtyControl}>
                         <TouchableOpacity onPress={() => updateQuantity(selectedProduct.id, -1)} style={styles.modalQtyBtn}>
-                          <Minus size={20} color="#A79277" />
+                          <Minus size={20} color={TEXT_SECONDARY} />
                         </TouchableOpacity>
                         <Text style={styles.modalQtyText}>{getItemQuantity(selectedProduct.id)}</Text>
                         <TouchableOpacity onPress={() => updateQuantity(selectedProduct.id, 1)} style={styles.modalQtyBtnPlus}>
-                          <Plus size={20} color="#FFF2E1" />
+                          <Plus size={20} color="#FFFFFF" />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -230,64 +239,104 @@ export default function CatalogScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF2E1' },
-  container: { flex: 1, backgroundColor: '#FFF2E1' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: DARK_BG },
+  container: { flex: 1, backgroundColor: DARK_BG },
 
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 8 },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: '#A79277', letterSpacing: -0.5 },
-  headerSubtitle: { fontSize: 13, color: '#A79277', opacity: 0.6, fontWeight: '500', marginTop: 2 },
+  header: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 8 },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: TEXT_PRIMARY, letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 13, color: TEXT_SECONDARY, fontWeight: '500', marginTop: 2 },
 
-  categoriesWrapper: { borderBottomWidth: 1, borderBottomColor: 'rgba(167,146,119,0.1)', backgroundColor: 'rgba(255,242,225,0.9)' },
-  categoriesContainer: { paddingHorizontal: 20, paddingVertical: 12, gap: 10 },
-  categoryChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 10, backgroundColor: '#fff', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(167,146,119,0.2)' },
-  activeCategoryChip: { backgroundColor: '#FF4747', borderColor: '#FF4747', shadowColor: '#FF4747', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  categoryChipEmoji: { fontSize: 16, marginRight: 6 },
-  categoryChipText: { fontSize: 14, fontWeight: '700', color: '#A79277' },
-  activeCategoryChipText: { color: '#FFF2E1' },
+  categoriesWrapper: { borderBottomWidth: 1, borderBottomColor: BORDER_COLOR, backgroundColor: DARK_BG },
+  categoriesContainer: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  categoryChip: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 9,
+    backgroundColor: DARK_CARD, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)'
+  },
+  activeCategoryChip: {
+    backgroundColor: ACCENT, borderColor: ACCENT,
+    shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4
+  },
+  categoryChipEmoji: { fontSize: 15, marginRight: 6 },
+  categoryChipText: { fontSize: 13, fontWeight: '700', color: TEXT_SECONDARY },
+  activeCategoryChipText: { color: '#FFFFFF' },
 
-  gridContainer: { padding: 16, paddingBottom: 100 },
+  gridContainer: { padding: 12, paddingBottom: 100 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 
-  productCard: { width: '48%', backgroundColor: '#fff', borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(167,146,119,0.1)', overflow: 'hidden' },
-  productImageContainer: { height: 130, backgroundColor: 'rgba(247,233,152,0.3)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  productEmoji: { fontSize: 56 },
+  productCard: {
+    width: '48.5%', backgroundColor: DARK_CARD, borderRadius: 20, marginBottom: 14,
+    borderWidth: 1, borderColor: BORDER_COLOR, overflow: 'hidden'
+  },
+  productImageContainer: {
+    height: 125, backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'
+  },
+  productEmoji: { fontSize: 54 },
   productImage: { width: '100%', height: '100%' },
-  productInfo: { padding: 14 },
+  productInfo: { padding: 12 },
   productNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  productName: { fontSize: 15, fontWeight: '700', color: '#A79277', flex: 1, lineHeight: 20, marginRight: 4 },
-  weightBadge: { backgroundColor: 'rgba(247,233,152,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#F7E998' },
-  weightText: { fontSize: 10, fontWeight: '700', color: '#A79277' },
+  productName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY, flex: 1, lineHeight: 20, marginRight: 4 },
+  weightBadge: {
+    backgroundColor: 'rgba(255,255,255,0.07)', paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 6, borderWidth: 1, borderColor: BORDER_COLOR
+  },
+  weightText: { fontSize: 10, fontWeight: '700', color: TEXT_SECONDARY },
   productFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  productPrice: { fontSize: 17, fontWeight: '900', color: '#FF4747' },
-  productPriceSuffix: { fontSize: 11, fontWeight: '600', color: '#A79277', marginTop: -2 },
+  productPrice: { fontSize: 16, fontWeight: '900', color: ACCENT },
+  productPriceSuffix: { fontSize: 11, fontWeight: '600', color: TEXT_SECONDARY, marginTop: -2 },
 
-  addBtn: { width: 42, height: 42, backgroundColor: '#FFF2E1', borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
-  qtyControlInline: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(247,233,152,0.5)', borderRadius: 14, padding: 3, borderWidth: 1, borderColor: '#F7E998' },
-  qtyBtnMinus: { width: 28, height: 28, borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
-  qtyBtnPlus: { width: 28, height: 28, borderRadius: 10, backgroundColor: '#FF4747', justifyContent: 'center', alignItems: 'center' },
-  qtyTextInline: { marginHorizontal: 10, fontSize: 14, fontWeight: '800', color: '#A79277' },
+  addBtn: {
+    width: 38, height: 38, backgroundColor: 'rgba(255,71,71,0.12)', borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,71,71,0.25)'
+  },
+  qtyControlInline: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: DARK_SURFACE,
+    borderRadius: 12, padding: 3, borderWidth: 1, borderColor: BORDER_COLOR
+  },
+  qtyBtnMinus: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#333333', justifyContent: 'center', alignItems: 'center' },
+  qtyBtnPlus: { width: 28, height: 28, borderRadius: 8, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center' },
+  qtyTextInline: { marginHorizontal: 8, fontSize: 14, fontWeight: '800', color: TEXT_PRIMARY },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: 40, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 20 },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
-  closeButton: { position: 'absolute', top: 20, right: 20, zIndex: 10, padding: 10, backgroundColor: '#FFF2E1', borderRadius: 20 },
-  modalImageContainer: { height: 220, backgroundColor: 'rgba(247,233,152,0.3)', justifyContent: 'center', alignItems: 'center', marginHorizontal: 20, borderRadius: 24, marginTop: 8, overflow: 'hidden' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)' },
+  modalContent: {
+    backgroundColor: DARK_CARD, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 40,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 25,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)'
+  },
+  modalHandle: { width: 40, height: 4, backgroundColor: '#444444', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
+  closeButton: {
+    position: 'absolute', top: 18, right: 18, zIndex: 10, padding: 8,
+    backgroundColor: DARK_SURFACE, borderRadius: 18, borderWidth: 1, borderColor: BORDER_COLOR
+  },
+  modalImageContainer: {
+    height: 210, backgroundColor: '#222222', justifyContent: 'center', alignItems: 'center',
+    marginHorizontal: 16, borderRadius: 20, marginTop: 8, overflow: 'hidden',
+    borderWidth: 1, borderColor: BORDER_COLOR
+  },
   modalProductImage: { width: '100%', height: '100%' },
-  modalEmoji: { fontSize: 100 },
-  modalBody: { padding: 24 },
-  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  modalTitle: { fontSize: 24, fontWeight: '900', color: '#A79277', flex: 1, letterSpacing: -0.3, marginRight: 8 },
-  modalWeightBadge: { backgroundColor: 'rgba(247,233,152,0.5)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#F7E998' },
-  modalWeightText: { fontSize: 12, fontWeight: '700', color: '#A79277' },
-  modalDesc: { fontSize: 15, color: '#A79277', opacity: 0.7, lineHeight: 24, marginBottom: 24, fontWeight: '400' },
+  modalEmoji: { fontSize: 96 },
+  modalBody: { padding: 22 },
+  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: TEXT_PRIMARY, flex: 1, letterSpacing: -0.3, marginRight: 8 },
+  modalWeightBadge: {
+    backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1, borderColor: BORDER_COLOR
+  },
+  modalWeightText: { fontSize: 12, fontWeight: '700', color: TEXT_SECONDARY },
+  modalDesc: { fontSize: 14, color: TEXT_SECONDARY, lineHeight: 22, marginBottom: 22, fontWeight: '400' },
   modalFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalPrice: { fontSize: 28, fontWeight: '900', color: '#FF4747' },
-  modalPriceSuffix: { fontSize: 13, fontWeight: '600', color: '#A79277' },
-  modalAddBtn: { backgroundColor: '#FF4747', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 20, shadowColor: '#FF4747', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-  modalAddText: { fontSize: 16, fontWeight: '800', color: '#FFF2E1' },
-  modalQtyControl: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(247,233,152,0.5)', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: '#F7E998' },
-  modalQtyBtn: { width: 40, height: 40, borderRadius: 16, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
-  modalQtyBtnPlus: { width: 40, height: 40, borderRadius: 16, backgroundColor: '#FF4747', justifyContent: 'center', alignItems: 'center' },
-  modalQtyText: { marginHorizontal: 16, fontSize: 18, fontWeight: '900', color: '#A79277' },
+  modalPrice: { fontSize: 26, fontWeight: '900', color: ACCENT },
+  modalPriceSuffix: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
+  modalAddBtn: {
+    backgroundColor: ACCENT, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 18,
+    shadowColor: ACCENT, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6
+  },
+  modalAddText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  modalQtyControl: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: DARK_SURFACE,
+    borderRadius: 18, padding: 4, borderWidth: 1, borderColor: BORDER_COLOR
+  },
+  modalQtyBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#333333', justifyContent: 'center', alignItems: 'center' },
+  modalQtyBtnPlus: { width: 40, height: 40, borderRadius: 14, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center' },
+  modalQtyText: { marginHorizontal: 14, fontSize: 18, fontWeight: '900', color: TEXT_PRIMARY },
 });

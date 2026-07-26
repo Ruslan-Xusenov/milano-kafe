@@ -50,7 +50,8 @@ bot.on('message', (msg) => {
       first_name: msg.from.first_name,
       last_name: msg.from.last_name,
       username: msg.from.username,
-      phone: phoneNumber
+      phone: phoneNumber,
+      expires_at: Date.now() + 5 * 60 * 1000 // 5 minutes
     };
     
     const message = `✅ Raqam tasdiqlandi!\n\n🔑 Tizimga kirish kodingiz: *${code}*\n\nUshbu kodni ilovadagi tegishli maydonga kiriting.`;

@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Search, Bell, Menu, LogOut, ChevronDown, Play, Square, Globe } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
@@ -22,7 +23,7 @@ const Header = ({ setIsSidebarOpen }) => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const response = await fetch('/api/orders');
+        const response = await apiFetch('/api/orders');
         if (response.ok) {
           const data = await response.json();
           const newOrders = data.filter(order => order.status === 'new').length;
@@ -45,8 +46,8 @@ const Header = ({ setIsSidebarOpen }) => {
   const fetchSessionData = async () => {
     try {
       const [sessionRes, earnedRes] = await Promise.all([
-        fetch(`/api/work-sessions/current/${user.id}`),
-        fetch(`/api/work-sessions/earned/${user.id}`)
+        apiFetch(`/api/work-sessions/current/${user.id}`),
+        apiFetch(`/api/work-sessions/earned/${user.id}`)
       ]);
       if (sessionRes.ok) setCurrentSession(await sessionRes.json());
       if (earnedRes.ok) {
@@ -58,7 +59,7 @@ const Header = ({ setIsSidebarOpen }) => {
 
   const handleStartWork = async () => {
     try {
-      await fetch('/api/work-sessions/start', {
+      await apiFetch('/api/work-sessions/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staff_id: user.id })
@@ -70,7 +71,7 @@ const Header = ({ setIsSidebarOpen }) => {
   const handleEndWork = async () => {
     if (!currentSession) return;
     try {
-      await fetch('/api/work-sessions/end', {
+      await apiFetch('/api/work-sessions/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: currentSession.id, staff_id: user.id })

@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Package, Save } from 'lucide-react';
 
@@ -10,7 +11,7 @@ const InventoryManagement = () => {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch('/api/inventory');
+      const res = await apiFetch('/api/inventory');
       if (res.ok) setInventory(await res.json());
     } catch (e) {
       console.error(e);
@@ -25,13 +26,13 @@ const InventoryManagement = () => {
     e.preventDefault();
     try {
       if (editingId) {
-        await fetch(`/api/inventory/${editingId}`, {
+        await apiFetch(`/api/inventory/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
         });
       } else {
-        await fetch('/api/inventory', {
+        await apiFetch('/api/inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -53,7 +54,7 @@ const InventoryManagement = () => {
   const handleDelete = async (id) => {
     if (!confirm("Haqiqatan ham o'chirmoqchimisiz?")) return;
     try {
-      await fetch(`/api/inventory/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/inventory/${id}`, { method: 'DELETE' });
       fetchInventory();
     } catch (e) { console.error(e); }
   };
@@ -62,7 +63,7 @@ const InventoryManagement = () => {
     const newQty = Number(item.quantity) + change;
     if (newQty < 0) return;
     try {
-      await fetch(`/api/inventory/${item.id}`, {
+      await apiFetch(`/api/inventory/${item.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...item, quantity: newQty })

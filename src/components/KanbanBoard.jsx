@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext, apiFetch } from '../context/AuthContext';
 import OrderCard from './OrderCard';
 
 const KanbanBoard = () => {
@@ -16,7 +16,7 @@ const KanbanBoard = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      const response = await apiFetch('/api/orders');
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       
@@ -62,7 +62,7 @@ const KanbanBoard = () => {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await fetch(`/api/orders/${id}/status`, {
+      await apiFetch(`/api/orders/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })

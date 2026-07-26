@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState } from 'react';
 import { Loader2, Phone, CheckCircle2, ChevronRight, XCircle, MapPin, Info } from 'lucide-react';
 
@@ -124,7 +125,7 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
                       value={order.payment_method || 'naqd'}
                       onChange={async (e) => {
                         try {
-                          await fetch(`/api/orders/${order.id}/payment`, {
+                          await apiFetch(`/api/orders/${order.id}/payment`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ payment_method: e.target.value })

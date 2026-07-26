@@ -6,8 +6,8 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [user, setUser] = useState(() => {
     try {
-      const savedToken = localStorage.getItem('token');
-      const savedUser = localStorage.getItem('user');
+      const savedToken = localStorage.getItem('cafebot_token');
+      const savedUser = localStorage.getItem('cafebot_user');
       if (savedToken && savedUser) {
         return { isLoggedIn: true, ...JSON.parse(savedUser) };
       }
@@ -39,21 +39,21 @@ export const CartProvider = ({ children }) => {
   };
 
   const login = (userData, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('cafebot_token', token);
+    localStorage.setItem('cafebot_user', JSON.stringify(userData));
     setUser({ isLoggedIn: true, ...userData });
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('cafebot_token');
+    localStorage.removeItem('cafebot_user');
     setUser({ isLoggedIn: false, phone: '+998', name: '', email: '' });
   };
 
   const updateUser = (userData) => {
     setUser(prev => {
       const updated = { ...prev, ...userData };
-      localStorage.setItem('user', JSON.stringify(updated));
+      localStorage.setItem('cafebot_user', JSON.stringify(updated));
       return updated;
     });
   };

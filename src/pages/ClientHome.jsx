@@ -1,10 +1,11 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingCart, Search, MapPin, User, ChevronRight,
   Menu as MenuIcon, Heart, Percent, Utensils, Coffee,
   Apple, Milk, Croissant, Droplets, Candy, Beef, Snowflake,
-  Plus, Minus, Trash2, Home, List, X, Info, Star, Edit3, Save, LogOut
+  Plus, Minus, Trash2, Home, List, X, Info, Star, Edit3, Save, LogOut, Phone
 } from 'lucide-react';
 import { CartContext } from '../context/CartContext';
 import ProductModal from '../components/ProductModal';
@@ -74,7 +75,7 @@ const ClientHome = () => {
     if (!user?.id) return;
     setIsLoadingOrders(true);
     try {
-      const res = await fetch(`/api/orders/user/${user.id}`);
+      const res = await apiFetch(`/api/orders/user/${user.id}`);
       if (res.ok) {
         const data = await res.json();
         setUserOrders(data);
@@ -92,7 +93,7 @@ const ClientHome = () => {
     setProfileSaveSuccess('');
     setIsProfileSaving(true);
     try {
-      const res = await fetch('/api/auth/client/update', {
+      const res = await apiFetch('/api/auth/client/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -119,7 +120,7 @@ const ClientHome = () => {
     if (!ratingOrder || ratingScore === 0) return;
     setIsRatingSubmitting(true);
     try {
-      const res = await fetch(`/api/orders/${ratingOrder.id}/rate`, {
+      const res = await apiFetch(`/api/orders/${ratingOrder.id}/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,10 +183,10 @@ const ClientHome = () => {
     const fetchData = async () => {
       try {
         const [menuRes, catRes, banRes, setRes] = await Promise.all([
-          fetch('/api/menu'),
-          fetch('/api/categories'),
-          fetch('/api/banners'),
-          fetch('/api/settings')
+          apiFetch('/api/menu'),
+          apiFetch('/api/categories'),
+          apiFetch('/api/banners'),
+          apiFetch('/api/settings')
         ]);
         if (menuRes.ok) {
           const data = await menuRes.json();

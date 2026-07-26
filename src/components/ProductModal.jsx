@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useEffect, useState } from 'react';
 import { X, Plus, Minus, Info, Sparkles } from 'lucide-react';
 
@@ -14,7 +15,7 @@ const ProductModal = ({ item, onClose, addToCart, removeFromCart, quantity }) =>
     // Tarkibini backenddan yuklash
     const fetchIngredients = async () => {
       try {
-        const res = await fetch(`/api/menu/${item.id}/ingredients`);
+        const res = await apiFetch(`/api/menu/${item.id}/ingredients`);
         if (res.ok) {
           setIngredients(await res.json());
         }

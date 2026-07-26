@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, List, ShoppingCart, User, Menu as MenuIcon } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
 import { StyleSheet, View, Text, TextInput, Platform } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,6 +26,11 @@ import { CartProvider } from './src/context/CartContext';
 
 const Tab = createBottomTabNavigator();
 
+const DARK_BG = '#1A1A1A';
+const DARK_SURFACE = '#252525';
+const ACCENT = '#FF4747';
+const INACTIVE_COLOR = '#777777';
+
 function TabNavigator() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
@@ -37,7 +41,7 @@ function TabNavigator() {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF' }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: DARK_SURFACE, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }]} />
         ),
         tabBarIcon: ({ color, focused }) => {
           let IconComponent;
@@ -47,25 +51,25 @@ function TabNavigator() {
           else if (route.name === 'Profil') IconComponent = User;
           else if (route.name === 'Yana') IconComponent = MenuIcon;
           return (
-            <IconComponent color={focused ? '#FF4747' : '#A79277'} size={24} strokeWidth={focused ? 2.5 : 2} />
+            <IconComponent color={focused ? ACCENT : INACTIVE_COLOR} size={22} strokeWidth={focused ? 2.5 : 2} />
           );
         },
-        tabBarActiveTintColor: '#FF4747', 
-        tabBarInactiveTintColor: '#A79277',
+        tabBarActiveTintColor: ACCENT,
+        tabBarInactiveTintColor: INACTIVE_COLOR,
         tabBarStyle: {
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
-          elevation: 15,
-          backgroundColor: '#FFFFFF',
+          elevation: 20,
+          backgroundColor: DARK_SURFACE,
           height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
           borderTopWidth: 1,
-          borderTopColor: 'rgba(167,146,119,0.1)',
-          shadowColor: '#A79277',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.05,
-          shadowRadius: 12,
+          borderTopColor: 'rgba(255,255,255,0.06)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -6 },
+          shadowOpacity: 0.4,
+          shadowRadius: 16,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 8,
         },

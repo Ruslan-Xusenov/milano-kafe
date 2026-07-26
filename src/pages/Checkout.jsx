@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Plus, Minus, CheckCircle, ShoppingCart, MapPin, Phone, User, Check, Info } from 'lucide-react';
@@ -50,7 +51,7 @@ const Checkout = () => {
     setError('');
 
     try {
-      const response = await fetch('/api/orders', {
+      const response = await apiFetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -81,7 +82,7 @@ const Checkout = () => {
 
       // Refresh user balance if logged in
       if (user?.isLoggedIn && user?.id) {
-        fetch('/api/auth/client/me/' + user.id)
+        apiFetch('/api/auth/client/me/' + user.id)
           .then(res => res.json())
           .then(data => {
             if (data && updateUser) {

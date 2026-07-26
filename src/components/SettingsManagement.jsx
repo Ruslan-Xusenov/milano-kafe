@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
 
@@ -16,7 +17,7 @@ const SettingsManagement = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/settings');
+      const response = await apiFetch('/api/settings');
       if (response.ok) {
         const data = await response.json();
         setSettings(prev => ({
@@ -33,7 +34,7 @@ const SettingsManagement = () => {
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/settings', {
+      const response = await apiFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings)

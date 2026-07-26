@@ -1,4 +1,5 @@
 const axios = require('axios');
+axios.defaults.headers.common['X-Printer-Token'] = process.env.PRINTER_SECRET || 'ede3d6fc2e5381127ddef2582d2373841aba683473be8b30de7405c52e3d365d';
 const ThermalPrinter = require("node-thermal-printer").printer;
 const PrinterTypes = require("node-thermal-printer").types;
 

@@ -1,99 +1,163 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
+require('dotenv').config();
 
-const dbPath = path.resolve(__dirname, 'cafebot.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message);
-  } else {
-    console.log('Connected to the SQLite database.');
-    db.run(`CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      customer_name TEXT,
-      phone TEXT,
-      items TEXT,
-      total INTEGER,
-      status TEXT DEFAULT 'new',
-      address TEXT,
-      printed INTEGER DEFAULT 0,
-      user_id INTEGER,
-      is_rated INTEGER DEFAULT 0,
-      cashback_used INTEGER DEFAULT 0,
-      cashback_earned INTEGER DEFAULT 0,
-      payment_method TEXT DEFAULT 'naqd',
-      comment TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT UNIQUE,
-      phone TEXT UNIQUE,
-      password TEXT,
-      google_id TEXT,
-      telegram_id TEXT,
-      role TEXT DEFAULT 'client',
-      cashback_balance INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    db.run(`CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rating INTEGER,
-      comment TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    
-    // Add user_id to orders table if it doesn't exist
-    db.run(`ALTER TABLE orders ADD COLUMN user_id INTEGER`, (err) => {
-      if (!err) console.log('Added user_id column to orders table.');
-    });
-    
-    // Add is_rated to orders table if it doesn't exist
-    db.run(`ALTER TABLE orders ADD COLUMN is_rated INTEGER DEFAULT 0`, (err) => {
-      if (!err) console.log('Added is_rated column to orders table.');
-    });
-
-    // Add push_token column for notifications
-    db.run(`ALTER TABLE users ADD COLUMN push_token TEXT`, (err) => {
-      if (!err) console.log('Added push_token column to users table.');
-    });
-
-    // Add payment_method to orders
-    db.run(`ALTER TABLE orders ADD COLUMN payment_method TEXT DEFAULT 'naqd'`, (err) => {
-      if (!err) console.log('Added payment_method column to orders table.');
-    });
-
-    // Add cashback columns
-    db.run(`ALTER TABLE users ADD COLUMN cashback_balance INTEGER DEFAULT 0`, (err) => {
-      if (!err) console.log('Added cashback_balance column to users table.');
-    });
-    db.run(`ALTER TABLE orders ADD COLUMN cashback_used INTEGER DEFAULT 0`, (err) => {
-      if (!err) console.log('Added cashback_used column to orders table.');
-    });
-    db.run(`ALTER TABLE orders ADD COLUMN cashback_earned INTEGER DEFAULT 0`, (err) => {
-      if (!err) console.log('Added cashback_earned column to orders table.');
-    });
-
-    // Add bilingual columns
-    db.run(`ALTER TABLE categories ADD COLUMN name_ru TEXT`, (err) => {
-      if (!err) console.log('Added name_ru to categories.');
-    });
-    db.run(`ALTER TABLE menu_items ADD COLUMN name_ru TEXT`, (err) => {
-      if (!err) console.log('Added name_ru to menu_items.');
-    });
-    db.run(`ALTER TABLE menu_items ADD COLUMN description_ru TEXT`, (err) => {
-      if (!err) console.log('Added description_ru to menu_items.');
-    });
-    // Add settings table
-    db.run(`CREATE TABLE IF NOT EXISTS settings (
-      setting_key TEXT PRIMARY KEY,
-      setting_value TEXT
-    )`, (err) => {
-      if (!err) console.log('Settings table ready.');
-    });
-  }
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://kali@localhost/cafebot',
 });
+
+// Helper to convert SQLite ? to PostgreSQL $1, $2, etc.
+function convertQuery(sql) {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+}
+
+const db = {
+  run: (sql, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    let pgSql = convertQuery(sql);
+    let isInsert = false;
+    
+    if (/^\s*INSERT\s+INTO/i.test(pgSql) && !/RETURNING/i.test(pgSql)) {
+      pgSql += ' RETURNING id';
+      isInsert = true;
+    }
+    
+    pool.query(pgSql, params, (err, result) => {
+      if (err) {
+        if (callback) callback(err);
+        return;
+      }
+      const context = {};
+      if (isInsert && result.rows && result.rows.length > 0) {
+        context.lastID = result.rows[0].id;
+      }
+      if (callback) callback.call(context, null);
+    });
+  },
+  
+  get: (sql, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    const pgSql = convertQuery(sql);
+    pool.query(pgSql, params, (err, result) => {
+      if (err) {
+        if (callback) callback(err, null);
+        return;
+      }
+      if (callback) callback(null, result.rows[0] || null);
+    });
+  },
+  
+  all: (sql, params, callback) => {
+    if (typeof params === 'function') {
+      callback = params;
+      params = [];
+    }
+    const pgSql = convertQuery(sql);
+    pool.query(pgSql, params, (err, result) => {
+      if (err) {
+        if (callback) callback(err, null);
+        return;
+      }
+      if (callback) callback(null, result.rows);
+    });
+  },
+  
+  prepare: (sql) => {
+    const pgSql = convertQuery(sql);
+    return {
+      run: (p1, p2, cb) => {
+        let q = pgSql;
+        if (q.includes('INSERT OR REPLACE INTO settings')) {
+          q = `INSERT INTO settings (setting_key, setting_value) VALUES ($1, $2) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`;
+        }
+        pool.query(q, [p1, p2], (err) => {
+          if (cb) cb(err);
+        });
+      },
+      finalize: () => {}
+    };
+  },
+
+  /**
+   * Run multiple queries in a single PostgreSQL transaction.
+   * @param {function(txDb): Promise<any>} asyncCallback - Receives a tx-bound db object.
+   *        Must return a Promise. On rejection, transaction is rolled back automatically.
+   * @returns {Promise<any>} Resolves with the callback's return value.
+   */
+  transaction: async (asyncCallback) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Provide a db-compatible object that uses the dedicated transaction client
+      const txDb = {
+        run: (sql, params, callback) => {
+          if (typeof params === 'function') { callback = params; params = []; }
+          let pgSql = convertQuery(sql);
+          let isInsert = false;
+          if (/^\s*INSERT\s+INTO/i.test(pgSql) && !/RETURNING/i.test(pgSql)) {
+            pgSql += ' RETURNING id';
+            isInsert = true;
+          }
+          return client.query(pgSql, params).then(result => {
+            const ctx = {};
+            if (isInsert && result.rows && result.rows.length > 0) ctx.lastID = result.rows[0].id;
+            if (callback) callback.call(ctx, null);
+            return ctx;
+          }).catch(err => {
+            if (callback) callback(err);
+            throw err;
+          });
+        },
+        get: (sql, params, callback) => {
+          if (typeof params === 'function') { callback = params; params = []; }
+          const pgSql = convertQuery(sql);
+          return client.query(pgSql, params).then(result => {
+            const row = result.rows[0] || null;
+            if (callback) callback(null, row);
+            return row;
+          }).catch(err => {
+            if (callback) callback(err, null);
+            throw err;
+          });
+        },
+        all: (sql, params, callback) => {
+          if (typeof params === 'function') { callback = params; params = []; }
+          const pgSql = convertQuery(sql);
+          return client.query(pgSql, params).then(result => {
+            if (callback) callback(null, result.rows);
+            return result.rows;
+          }).catch(err => {
+            if (callback) callback(err, null);
+            throw err;
+          });
+        },
+        // Raw client query (for FOR UPDATE, etc.)
+        query: (sql, params) => client.query(convertQuery(sql), params || []),
+      };
+
+      const result = await asyncCallback(txDb);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+};
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+console.log('Connected to the PostgreSQL database.');
 
 module.exports = db;

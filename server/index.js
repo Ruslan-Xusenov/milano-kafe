@@ -5,27 +5,135 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 const { sendOrderToTelegram, sendStatusUpdateToTelegram, sendSecurityAlertToUser, bot } = require('./bot');
 const { printReceipt } = require('./printer');
 const { sendPushNotification } = require('./notifications');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'milano_kafe_super_secret_key';
+// --- Startup checks ---
+if (!process.env.JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET environment variable is not set. Server will not start.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'dummy_client_id';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+// --- CORS ---
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['https://milano.securehub.uz'];
 
-// Barcha buyurtmalarni olish
-app.get('/api/orders', (req, res) => {
-  db.all("SELECT * FROM orders ORDER BY created_at DESC", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
+const app = express();
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
+
+// --- Body size limit ---
+app.use(express.json({ limit: '100kb' }));
+
+// --- Rate limiting ---
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'So\'rovlar juda ko\'p. 15 daqiqadan so\'ng qayta urinib ko\'ring.' },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Kirishlar juda ko\'p. 15 daqiqadan so\'ng qayta urinib ko\'ring.' },
+});
+
+app.use('/api/', generalLimiter);
+app.use('/api/auth/', authLimiter);
+
+// ============================================================
+// --- AUTH MIDDLEWARE ---
+// ============================================================
+
+/**
+ * requireAuth(allowedRoles)
+ * Checks JWT from Authorization header and verifies role.
+ * @param {string[]} allowedRoles - e.g. ['admin','superadmin'] or ['client'] or [] for any authenticated user
+ */
+function requireAuth(allowedRoles = []) {
+  return (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Autentifikatsiya talab qilinadi' });
     }
-    // Parse items from JSON string
+    const token = authHeader.slice(7);
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded; // { id, role, iat, exp }
+      if (allowedRoles.length > 0 && !allowedRoles.includes(decoded.role?.toLowerCase())) {
+        return res.status(403).json({ error: 'Ruxsat yo\'q' });
+      }
+      next();
+    } catch (err) {
+      return res.status(401).json({ error: 'Token yaroqsiz yoki muddati o\'tgan' });
+    }
+  };
+}
+
+const requireStaff = requireAuth(['admin', 'superadmin', 'waiter', 'cashier']);
+const requireAdmin = requireAuth(['admin', 'superadmin']);
+const requireClient = requireAuth(['client']);
+const requireAnyAuth = requireAuth([]);
+
+// Token bo'lsa tekshiradi, bo'lmasa anonim sifatida davom etadi
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return next();
+  const token = authHeader.slice(7);
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+  } catch (e) {
+    // Invalid token — treat as anonymous
+  }
+  next();
+}
+
+// Printer client authentication — X-Printer-Token header bilan
+const PRINTER_SECRET = process.env.PRINTER_SECRET;
+function requirePrinter(req, res, next) {
+  // Also allow staff token as fallback
+  const printerToken = req.headers['x-printer-token'];
+  if (PRINTER_SECRET && printerToken === PRINTER_SECRET) return next();
+  // Fallback: staff JWT
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(authHeader.slice(7), JWT_SECRET);
+      const role = decoded.role?.toLowerCase();
+      if (['admin','superadmin','waiter','cashier'].includes(role)) return next();
+    } catch (e) {}
+  }
+  // IP allowlist fallback: localhost printer client
+  const clientIp = req.ip || req.connection?.remoteAddress;
+  if (clientIp === '127.0.0.1' || clientIp === '::1' || clientIp === '::ffff:127.0.0.1') return next();
+  return res.status(401).json({ error: 'Printer autentifikatsiya talab qilinadi' });
+}
+
+// ============================================================
+// --- ORDERS API ---
+// ============================================================
+
+// Barcha buyurtmalarni olish — faqat staff
+app.get('/api/orders', requireStaff, (req, res) => {
+  db.all("SELECT * FROM orders ORDER BY created_at DESC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
     const orders = rows.map(row => ({
       ...row,
       items: JSON.parse(row.items)
@@ -34,71 +142,123 @@ app.get('/api/orders', (req, res) => {
   });
 });
 
-// Yangi buyurtma yaratish
-app.post('/api/orders', (req, res) => {
-  const { customer_name, phone, items, total, address, user_id, cashback_used, payment_method, comment } = req.body;
-  const itemsJson = JSON.stringify(items);
-  let usedAmount = parseInt(cashback_used) || 0;
+// Yangi buyurtma yaratish — server-side narx hisoblash, optionalAuth
+app.post('/api/orders', optionalAuth, async (req, res) => {
+  const { customer_name, phone, items, cashback_used, payment_method, comment, address } = req.body;
+
+  // user_id faqat token orqali — client yuborgan qiymat e'tiborga olinmaydi
+  const authenticatedUserId = req.user?.role === 'client' ? req.user.id : null;
+
+  if (!customer_name || !phone || !items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Majburiy maydonlar to\'ldirilmagan' });
+  }
+
+  for (const item of items) {
+    const qty = parseInt(item.quantity);
+    if (!item.id || isNaN(qty) || qty < 1) {
+      return res.status(400).json({ error: 'Mahsulot ma\'lumotlari noto\'g\'ri' });
+    }
+  }
+
   const method = payment_method || 'naqd';
-  
-  const insertOrder = (earned, used) => {
-    const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method, comment) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`;
-    db.run(sql, [customer_name, phone, itemsJson, total, address || 'Kiritilmagan', user_id || null, used, earned, method, comment || null], function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      
-      const newOrder = {
-        id: this.lastID,
-        customer_name,
-        phone,
-        items,
-        total,
-        address: address || 'Kiritilmagan',
-        status: 'new',
-        user_id,
-        cashback_used: used,
-        cashback_earned: earned,
-        payment_method: method,
-        comment: comment || null
-      };
-      
-      // Telegramga xabar yuborish
+  const itemIds = items.map(i => i.id);
+  const placeholders = itemIds.map(() => '?').join(',');
+
+  db.all(`SELECT id, price FROM menu_items WHERE id IN (${placeholders}) AND available = true`, itemIds, async (err, menuRows) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const priceMap = {};
+    menuRows.forEach(m => { priceMap[m.id] = m.price; });
+
+    for (const item of items) {
+      if (!priceMap[item.id]) {
+        return res.status(400).json({ error: `Mahsulot topilmadi yoki mavjud emas: ID ${item.id}` });
+      }
+    }
+
+    const verifiedItems = items.map(item => ({
+      ...item,
+      price: priceMap[item.id],
+      quantity: parseInt(item.quantity),
+    }));
+    const serverTotal = verifiedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const itemsJson = JSON.stringify(verifiedItems);
+
+    try {
+      const newOrder = await db.transaction(async (tx) => {
+        let finalUsed = 0;
+        let finalEarned = 0;
+
+        if (authenticatedUserId) {
+          // Row-level lock — concurrent requests uchun xavfsiz
+          const freshUser = await tx.query(
+            'SELECT cashback_balance FROM users WHERE id = $1 FOR UPDATE',
+            [authenticatedUserId]
+          ).then(r => r.rows[0]);
+
+          if (freshUser) {
+            let usedAmount = parseInt(cashback_used) || 0;
+            const maxUsable = Math.floor(serverTotal / 2);
+            finalUsed = Math.min(usedAmount, freshUser.cashback_balance || 0, maxUsable);
+            if (finalUsed < 0) finalUsed = 0;
+
+            if (finalUsed === 0 && serverTotal > 0) {
+              if (serverTotal >= 999000) finalEarned = Math.floor(serverTotal * 0.06);
+              else if (serverTotal >= 599000) finalEarned = Math.floor(serverTotal * 0.05);
+              else if (serverTotal >= 299000) finalEarned = Math.floor(serverTotal * 0.04);
+              else if (serverTotal >= 99000) finalEarned = Math.floor(serverTotal * 0.03);
+              else finalEarned = Math.floor(serverTotal * 0.02);
+            }
+
+            if (finalUsed > 0) {
+              const updateResult = await tx.query(
+                'UPDATE users SET cashback_balance = cashback_balance - $1 WHERE id = $2 AND cashback_balance >= $1',
+                [finalUsed, authenticatedUserId]
+              );
+              if (updateResult.rowCount === 0) {
+                // Muvozanat yetarli emas — cashbacksiz davom etadi
+                finalUsed = 0;
+                finalEarned = Math.floor(serverTotal * 0.02);
+              }
+            }
+          }
+        }
+
+        const ctx = await tx.run(
+          `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method, comment) VALUES (?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?)`,
+          [customer_name, phone, itemsJson, serverTotal, address || 'Kiritilmagan', authenticatedUserId, finalUsed, finalEarned, method, comment || null]
+        );
+
+        return {
+          id: ctx.lastID,
+          customer_name, phone,
+          items: verifiedItems,
+          total: serverTotal,
+          address: address || 'Kiritilmagan',
+          status: 'new',
+          user_id: authenticatedUserId,
+          cashback_used: finalUsed,
+          cashback_earned: finalEarned,
+          payment_method: method,
+          comment: comment || null
+        };
+      });
+
       sendOrderToTelegram(newOrder);
       res.status(201).json(newOrder);
-    });
-  };
-
-  if (user_id) {
-    db.get("SELECT cashback_balance FROM users WHERE id = ?", [user_id], (err, user) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!user) return insertOrder(0, 0);
-
-      const maxUsable = Math.floor(total / 2);
-      if (usedAmount > user.cashback_balance || usedAmount > maxUsable) {
-         usedAmount = Math.min(user.cashback_balance || 0, maxUsable);
-      }
-
-      let earnedAmount = 0;
-      // Agar keshbek ishlatilgan bo'lsa, yangi keshbek qo'shilmaydi
-      if (usedAmount === 0 && total > 0) {
-        if (total >= 999000) earnedAmount = Math.floor(total * 0.06);
-        else if (total >= 599000) earnedAmount = Math.floor(total * 0.05);
-        else if (total >= 299000) earnedAmount = Math.floor(total * 0.04);
-        else if (total >= 99000) earnedAmount = Math.floor(total * 0.03);
-        else earnedAmount = Math.floor(total * 0.02);
-      }
-
-      db.run("UPDATE users SET cashback_balance = cashback_balance - ? WHERE id = ?", [usedAmount, user_id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        insertOrder(earnedAmount, usedAmount);
-      });
-    });
-  } else {
-    insertOrder(0, 0);
-  }
+    } catch (err) {
+      console.error('Order creation failed:', err);
+      res.status(500).json({ error: err.message || 'Buyurtma yaratishda xatolik' });
+    }
+  });
 });
 
-// Foydalanuvchining o'z buyurtmalarini olish
-app.get('/api/orders/user/:id', (req, res) => {
+// Foydalanuvchining o'z buyurtmalarini olish — IDOR fix
+app.get('/api/orders/user/:id', requireClient, (req, res) => {
+  // Client faqat o'zining buyurtmalarini ko'rishi mumkin
+  if (req.user.id !== parseInt(req.params.id)) {
+    return res.status(403).json({ error: 'Ruxsat yo\'q' });
+  }
   db.all("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC", [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const orders = rows.map(row => ({
@@ -109,148 +269,175 @@ app.get('/api/orders/user/:id', (req, res) => {
   });
 });
 
-// Bajarilgan buyurtmani anonim baholash
-app.post('/api/orders/:id/rate', (req, res) => {
+// Bajarilgan buyurtmani anonim baholash — duplicate防止 transaction bilan
+app.post('/api/orders/:id/rate', optionalAuth, async (req, res) => {
   const { id } = req.params;
   const { rating, comment } = req.body;
-  
-  // Tekshirish: buyurtma haqiqatan mavjudmi va oldin baholanmaganmi
-  db.get("SELECT is_rated, status FROM orders WHERE id = ?", [id], (err, order) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!order) return res.status(404).json({ error: "Buyurtma topilmadi" });
-    if (order.status !== 'completed') return res.status(400).json({ error: "Faqat bajarilgan buyurtmalarni baholash mumkin" });
-    if (order.is_rated === 1) return res.status(400).json({ error: "Bu buyurtma allaqachon baholangan" });
-    
-    // Anonim reviews jadvaliga yozish
-    db.run("INSERT INTO reviews (rating, comment) VALUES (?, ?)", [rating, comment || ''], function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      
-      // Orders jadvalida is_rated ni 1 qilish
-      db.run("UPDATE orders SET is_rated = 1 WHERE id = ?", [id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ status: 'success', message: 'Baholandi' });
-      });
+
+  if (!rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Baho 1 dan 5 gacha bo\'lishi kerak' });
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      // Row lock — parallel requestlarni bloklaydi
+      const order = await tx.query(
+        "SELECT is_rated, status, user_id FROM orders WHERE id = $1 FOR UPDATE", [id]
+      ).then(r => r.rows[0]);
+
+      if (!order) throw Object.assign(new Error('Buyurtma topilmadi'), { status: 404 });
+      if (order.status !== 'completed') throw Object.assign(new Error('Faqat bajarilgan buyurtmalarni baholash mumkin'), { status: 400 });
+      if (order.is_rated) throw Object.assign(new Error('Bu buyurtma allaqachon baholangan'), { status: 400 });
+
+      if (order.user_id && (!req.user || req.user.id !== order.user_id)) {
+        throw Object.assign(new Error('Siz bu buyurtmani baholay olmaysiz'), { status: 403 });
+      }
+
+      await tx.run("INSERT INTO reviews (rating, comment, order_id) VALUES (?, ?, ?)", [rating, comment || '', id]);
+      await tx.run("UPDATE orders SET is_rated = 1 WHERE id = ?", [id]);
     });
-  });
+
+    res.json({ status: 'success', message: 'Baholandi' });
+  } catch (err) {
+    const code = err.status || 500;
+    res.status(code).json({ error: err.message });
+  }
 });
 
-// Admin uchun barcha anonim baholarni olish
-app.get('/api/reviews', (req, res) => {
+// Admin uchun barcha anonim baholarni olish — faqat staff
+app.get('/api/reviews', requireStaff, (req, res) => {
   db.all("SELECT * FROM reviews ORDER BY created_at DESC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-// To'lov turini o'zgartirish
-app.put('/api/orders/:id/payment', (req, res) => {
+// To'lov turini o'zgartirish — faqat staff
+app.put('/api/orders/:id/payment', requireStaff, (req, res) => {
   const { id } = req.params;
   const { payment_method } = req.body;
-  
+
+  const allowed = ['naqd', 'karta', 'click', 'payme', 'uzum'];
+  if (!allowed.includes(payment_method)) {
+    return res.status(400).json({ error: 'Noto\'g\'ri to\'lov turi' });
+  }
+
   db.run("UPDATE orders SET payment_method = ? WHERE id = ?", [payment_method, id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ status: 'success', payment_method });
   });
 });
 
-// Buyurtma holatini yangilash
-app.put('/api/orders/:id/status', (req, res) => {
+// Buyurtma holatini yangilash — faqat staff
+app.put('/api/orders/:id/status', requireStaff, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; // 'new', 'preparing', 'delivering', 'completed', 'rejected'
+  const { status } = req.body;
 
-  db.get(`SELECT status, user_id, cashback_earned, cashback_used FROM orders WHERE id = ?`, [id], (err, oldOrder) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!oldOrder) return res.status(404).json({ error: "Order not found" });
+  const validStatuses = ['new', 'preparing', 'delivering', 'completed', 'rejected'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: 'Noto\'g\'ri status' });
+  }
 
-    const sql = `UPDATE orders SET status = ? WHERE id = ?`;
-    db.run(sql, [status, id], function(err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+  try {
+    await db.transaction(async (tx) => {
+      const oldOrder = await tx.get(
+        'SELECT status, user_id, cashback_earned, cashback_used, items FROM orders WHERE id = ?', [id]
+      );
+      if (!oldOrder) throw Object.assign(new Error('Order not found'), { status: 404 });
+
+      if (oldOrder.status === 'completed' || oldOrder.status === 'rejected') {
+        throw Object.assign(new Error('Yakunlangan yoki bekor qilingan buyurtma statusini o\'zgartirib bo\'lmaydi'), { status: 400 });
       }
-      
+
+      const updateResult = await tx.query(
+        'UPDATE orders SET status = $1 WHERE id = $2 AND status != $1',
+        [status, id]
+      );
+
+      if (updateResult.rowCount === 0) {
+        // Already this status — no-op (not an error)
+        return { alreadySet: true };
+      }
+
+      // completed → keshback qo'shish + inventory kamaytirish
       if (status === 'completed' && oldOrder.status !== 'completed' && oldOrder.user_id) {
-         db.run(`UPDATE users SET cashback_balance = cashback_balance + ? WHERE id = ?`, [oldOrder.cashback_earned, oldOrder.user_id]);
-      }
-      
-      if (status === 'rejected' && oldOrder.status !== 'rejected' && oldOrder.user_id) {
-         db.run(`UPDATE users SET cashback_balance = cashback_balance + ? WHERE id = ?`, [oldOrder.cashback_used, oldOrder.user_id]);
-      }
+        await tx.run(
+          'UPDATE users SET cashback_balance = cashback_balance + ? WHERE id = ?',
+          [oldOrder.cashback_earned || 0, oldOrder.user_id]
+        );
 
-      // Agar buyurtma yakunlangan bo'lsa, ombordan mahsulotlarni ayirib tashlash
-      if (status === 'completed' && oldOrder.status !== 'completed') {
-        db.get(`SELECT items FROM orders WHERE id = ?`, [id], (err, row) => {
-        if (!err && row && row.items) {
-          try {
-            const items = JSON.parse(row.items);
-            items.forEach(item => {
-              // Har bir ovqat uchun retseptni olib, ombordan ayirish
-              db.all(`SELECT inventory_id, amount FROM recipe_ingredients WHERE menu_item_id = ?`, [item.id], (err, recipes) => {
-                if (!err && recipes) {
-                  recipes.forEach(recipe => {
-                    const decrementAmount = recipe.amount * item.quantity;
-                    db.run(`UPDATE inventory SET quantity = quantity - ? WHERE id = ?`, [decrementAmount, recipe.inventory_id]);
-                  });
-                }
-              });
-            });
-          } catch (e) { console.error("Error parsing order items", e); }
+        // Inventory deduction
+        try {
+          const orderItems = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
+          for (const item of orderItems) {
+            const recipes = await tx.all(
+              'SELECT inventory_id, amount FROM recipe_ingredients WHERE menu_item_id = ?', [item.id]
+            );
+            for (const recipe of recipes) {
+              await tx.run(
+                'UPDATE inventory SET quantity = quantity - ? WHERE id = ?',
+                [recipe.amount * item.quantity, recipe.inventory_id]
+              );
+            }
+          }
+        } catch (e) {
+          console.error('Inventory deduction error (non-fatal):', e);
         }
-      });
-    }
+      }
 
-    // Agar buyurtma admin tomonidan tasdiqlansa (preparing)
-    if (status === 'preparing') {
-      db.get(`SELECT * FROM orders WHERE id = ?`, [id], (err, row) => {
-        if (!err && row) {
-          printReceipt(row);
-        }
-      });
-    }
+      // rejected → cashback qaytarish
+      if (status === 'rejected' && oldOrder.status !== 'rejected' && oldOrder.user_id && oldOrder.cashback_used > 0) {
+        await tx.run(
+          'UPDATE users SET cashback_balance = cashback_balance + ? WHERE id = ?',
+          [oldOrder.cashback_used, oldOrder.user_id]
+        );
+      }
 
-    // Agar status yangilangan bo'lsa
-    sendStatusUpdateToTelegram(id, status);
-    
-    res.json({ message: "Status updated", id, status });
-  });
-  });
+      return { alreadySet: false };
+    }).then(({ alreadySet }) => {
+      if (alreadySet) {
+        return res.json({ message: 'Status already set', id, status });
+      }
+      // Telegram — transaction tashqarisida (side-effects)
+      sendStatusUpdateToTelegram(id, status);
+      res.json({ message: 'Status updated', id, status });
+    });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message });
+    console.error('Status update failed:', err);
+    res.status(500).json({ error: err.message || 'Status yangilashda xatolik' });
+  }
 });
 
-// Mahalliy Print Client uchun API
-app.get('/api/print-jobs', (req, res) => {
-  db.all("SELECT * FROM orders WHERE status = 'preparing' AND printed = 0", [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    // Parse items back to JSON
+// Mahalliy Print Client uchun API — requirePrinter bilan himoyalangan
+app.get('/api/print-jobs', requirePrinter, (req, res) => {
+  db.all("SELECT * FROM orders WHERE status = 'preparing' AND (printed = false OR printed IS NULL)", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
     const parsedRows = rows.map(r => {
-        try { r.items = JSON.parse(r.items); } catch(e) {}
-        return r;
+      try { r.items = typeof r.items === 'string' ? JSON.parse(r.items) : r.items; } catch(e) {}
+      return r;
     });
     res.json(parsedRows);
   });
 });
 
-app.post('/api/print-jobs/:id/done', (req, res) => {
+app.post('/api/print-jobs/:id/done', requirePrinter, (req, res) => {
   const { id } = req.params;
-  db.run("UPDATE orders SET printed = 1 WHERE id = ?", [id], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+  db.run("UPDATE orders SET printed = true WHERE id = ?", [id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
-// Top 5 mijozlar (keshbeksiz hisob)
-app.get('/api/analytics/top-customers', (req, res) => {
+// Top 5 mijozlar — faqat staff, sensitive ma'lumotlar olib tashlangan
+app.get('/api/analytics/top-customers', requireStaff, (req, res) => {
   const sql = `
     SELECT 
       o.customer_name, 
       o.phone, 
-      SUM(o.total - IFNULL(o.cashback_used, 0)) as total_spent, 
+      SUM(o.total - COALESCE(o.cashback_used, 0)) as total_spent, 
       COUNT(o.id) as order_count,
-      u.id as user_id,
-      u.telegram_id,
-      u.push_token
+      u.id as user_id
     FROM orders o
     LEFT JOIN users u ON o.user_id = u.id OR o.phone = u.phone
     WHERE o.status = 'completed' 
@@ -264,10 +451,15 @@ app.get('/api/analytics/top-customers', (req, res) => {
   });
 });
 
-// Push tokenni saqlash
-app.post('/api/users/push-token', (req, res) => {
+// Push tokenni saqlash — faqat autentifikatsiya qilingan client o'z tokenini saqlaydi
+app.post('/api/users/push-token', requireClient, (req, res) => {
   const { user_id, push_token } = req.body;
   if (!user_id || !push_token) return res.status(400).json({ error: "Missing required fields" });
+
+  // IDOR fix: client faqat o'zining tokenini saqlashi mumkin
+  if (req.user.id !== parseInt(user_id)) {
+    return res.status(403).json({ error: 'Ruxsat yo\'q' });
+  }
 
   db.run("UPDATE users SET push_token = ? WHERE id = ?", [push_token, user_id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -275,32 +467,29 @@ app.post('/api/users/push-token', (req, res) => {
   });
 });
 
-// Bepul buyurtma (sovg'a) yaratish va yuborish
-app.post('/api/orders/gift', (req, res) => {
+// Bepul buyurtma (sovg'a) yaratish — faqat staff
+app.post('/api/orders/gift', requireStaff, (req, res) => {
   const { user_id, customer_name, phone, items, message_text, telegram_id, push_token } = req.body;
-  
+
   if (!phone || !items || !items.length) {
     return res.status(400).json({ error: "Phone and items are required" });
   }
 
   const itemsJson = JSON.stringify(items);
-  // total is 0 since it's a gift
   const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, 0, 'delivering', "Sovg'a yuborildi", ?, 0, 0)`;
-  
+
   db.run(sql, [customer_name || 'Mijoz', phone, itemsJson, user_id || null], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     const orderId = this.lastID;
 
-    // Send Push Notification if push_token exists
     if (push_token) {
       sendPushNotification(
-        push_token, 
-        "🎁 Sizga sovg'a keldi!", 
+        push_token,
+        "🎁 Sizga sovg'a keldi!",
         message_text || "Milano Kafe tomonidan sizga bepul ovqat jo'natildi."
       );
     }
 
-    // Send Telegram Bot Message if telegram_id exists
     if (telegram_id) {
       const msg = `🎁 *Sizga sovg'a keldi!*\n\n${message_text || "Milano Kafe tomonidan sizga bepul ovqat jo'natildi."}\n\n*Buyurtma:*\n${items.map(i => `- ${i.name} x${i.quantity}`).join('\n')}`;
       bot.sendMessage(telegram_id, msg, { parse_mode: 'Markdown' }).catch(e => console.error("Tg bot error:", e));
@@ -310,7 +499,10 @@ app.post('/api/orders/gift', (req, res) => {
   });
 });
 
+// ============================================================
 // --- MENU API ---
+// ============================================================
+
 app.get('/api/menu', (req, res) => {
   db.all("SELECT * FROM menu_items", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -318,36 +510,41 @@ app.get('/api/menu', (req, res) => {
   });
 });
 
-app.post('/api/menu', (req, res) => {
+app.post('/api/menu', requireAdmin, (req, res) => {
   const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available } = req.body;
+  if (!name || !price || !category) return res.status(400).json({ error: 'name, price, category majburiy' });
   const sql = `INSERT INTO menu_items (name, name_ru, description, description_ru, price, category, emoji, color, weight, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available === undefined ? 1 : available], function(err) {
+  db.run(sql, [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available === undefined ? true : !!available], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID, ...req.body });
   });
 });
 
-app.put('/api/menu/:id', (req, res) => {
+app.put('/api/menu/:id', requireAdmin, (req, res) => {
   const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available } = req.body;
   const sql = `UPDATE menu_items SET name=?, name_ru=?, description=?, description_ru=?, price=?, category=?, emoji=?, color=?, weight=?, available=? WHERE id=?`;
-  db.run(sql, [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available, req.params.id], function(err) {
+  db.run(sql, [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, !!available, req.params.id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true, id: req.params.id });
   });
 });
 
-app.delete('/api/menu/:id', (req, res) => {
+app.delete('/api/menu/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM menu_items WHERE id=?", req.params.id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
+// ============================================================
 // --- STAFF API ---
-app.get('/api/staff', (req, res) => {
+// ============================================================
+
+app.get('/api/staff', requireStaff, (req, res) => {
+  // password maydoni qaytarilmaydi, strftime → to_char (PostgreSQL)
   db.all(`
-    SELECT s.*, 
-      COALESCE((SELECT SUM(earned) FROM work_sessions w WHERE w.staff_id = s.id AND strftime('%Y-%m', w.start_time) = strftime('%Y-%m', 'now')), 0) as current_month_earned
+    SELECT s.id, s.name, s.role, s.phone, s.username, s.salary,
+      COALESCE((SELECT SUM(earned) FROM work_sessions w WHERE w.staff_id = s.id AND to_char(w.start_time, 'YYYY-MM') = to_char(NOW(), 'YYYY-MM')), 0) as current_month_earned
     FROM staff s
   `, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -355,50 +552,91 @@ app.get('/api/staff', (req, res) => {
   });
 });
 
-app.post('/api/staff', (req, res) => {
+app.post('/api/staff', requireAdmin, async (req, res) => {
   const { name, role, phone, username, password, salary } = req.body;
-  db.run("INSERT INTO staff (name, role, phone, username, password, salary) VALUES (?, ?, ?, ?, ?, ?)", 
-    [name, role, phone, username, password, salary || 0], 
-    function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ id: this.lastID, ...req.body });
-    }
-  );
+  if (!name || !username || !password) {
+    return res.status(400).json({ error: 'name, username, password majburiy' });
+  }
+
+  // Role whitelist — superadmin faqat boshqa superadmin tomonidan yaratilishi mumkin emas
+  const allowedRoles = ['waiter', 'cashier', 'admin'];
+  const requestorRole = req.user?.role?.toLowerCase();
+  if (requestorRole !== 'superadmin') allowedRoles.splice(allowedRoles.indexOf('admin'), 1); // faqat superadmin admin yarata oladi
+  const finalRole = role || 'waiter';
+  if (!['waiter', 'cashier', 'admin', 'superadmin'].includes(finalRole)) {
+    return res.status(400).json({ error: 'Noto\'g\'ri rol' });
+  }
+  if (finalRole === 'superadmin' && requestorRole !== 'superadmin') {
+    return res.status(403).json({ error: 'Superadmin yaratishga ruxsat yo\'q' });
+  }
+  if (finalRole === 'admin' && requestorRole !== 'superadmin') {
+    return res.status(403).json({ error: 'Admin yaratish uchun superadmin huquqi kerak' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password, 12);
+    db.run("INSERT INTO staff (name, role, phone, username, password, salary) VALUES (?, ?, ?, ?, ?, ?)",
+      [name, finalRole, phone, username, hashedPassword, salary || 0],
+      function(err) {
+        if (err) {
+          if (err.message.includes('UNIQUE')) return res.status(400).json({ error: 'Bu username band' });
+          return res.status(500).json({ error: err.message });
+        }
+        res.json({ id: this.lastID, name, role: finalRole, phone, username, salary });
+      }
+    );
+  } catch (err) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
 });
 
-app.delete('/api/staff/:id', (req, res) => {
+app.delete('/api/staff/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM staff WHERE id=?", req.params.id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
+// ============================================================
 // --- WORK SESSIONS API ---
-app.get('/api/work-sessions/current/:staffId', (req, res) => {
+// ============================================================
+
+app.get('/api/work-sessions/current/:staffId', requireStaff, (req, res) => {
   db.get("SELECT * FROM work_sessions WHERE staff_id = ? AND end_time IS NULL", [req.params.staffId], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(row || null);
   });
 });
 
-app.post('/api/work-sessions/start', (req, res) => {
+app.post('/api/work-sessions/start', requireStaff, (req, res) => {
+  // IDOR: faqat o'zining sessionini boshlashi mumkin (admin istisnosi bilan)
   const { staff_id } = req.body;
+  const requestorRole = req.user?.role?.toLowerCase();
+  if (!['admin', 'superadmin'].includes(requestorRole) && req.user.id !== parseInt(staff_id)) {
+    return res.status(403).json({ error: 'Faqat o\'z sessioningizni boshqarish mumkin' });
+  }
   db.run("INSERT INTO work_sessions (staff_id) VALUES (?)", [staff_id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ id: this.lastID, staff_id });
   });
 });
 
-app.post('/api/work-sessions/end', (req, res) => {
+app.post('/api/work-sessions/end', requireStaff, (req, res) => {
+  // IDOR: faqat o'zining sessionini tugatishi mumkin (admin istisnosi bilan)
   const { id, staff_id } = req.body;
+  const requestorRole = req.user?.role?.toLowerCase();
+  if (!['admin', 'superadmin'].includes(requestorRole) && req.user.id !== parseInt(staff_id)) {
+    return res.status(403).json({ error: 'Faqat o\'z sessioningizni boshqarish mumkin' });
+  }
   db.get("SELECT salary FROM staff WHERE id = ?", [staff_id], (err, staff) => {
     if (err) return res.status(500).json({ error: err.message });
     const hourlyWage = staff?.salary || 0;
-    
+
+    // STRFTIME PostgreSQL-ga mos: EXTRACT epoch
     db.run(`
       UPDATE work_sessions 
-      SET end_time = CURRENT_TIMESTAMP, 
-          earned = (STRFTIME('%s', CURRENT_TIMESTAMP) - STRFTIME('%s', start_time)) / 3600.0 * ?
+      SET end_time = NOW(), 
+          earned = EXTRACT(EPOCH FROM (NOW() - start_time)) / 3600.0 * ?
       WHERE id = ? AND end_time IS NULL
     `, [hourlyWage, id], function(err) {
       if (err) return res.status(500).json({ error: err.message });
@@ -407,52 +645,60 @@ app.post('/api/work-sessions/end', (req, res) => {
   });
 });
 
-app.get('/api/work-sessions/earned/:staffId', (req, res) => {
+app.get('/api/work-sessions/earned/:staffId', requireStaff, (req, res) => {
+  // strftime → to_char (PostgreSQL)
   db.get(`
     SELECT COALESCE(SUM(earned), 0) as total_earned 
     FROM work_sessions 
-    WHERE staff_id = ? AND strftime('%Y-%m', start_time) = strftime('%Y-%m', 'now')
+    WHERE staff_id = ? AND to_char(start_time, 'YYYY-MM') = to_char(NOW(), 'YYYY-MM')
   `, [req.params.staffId], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(row);
   });
 });
 
+// ============================================================
 // --- INVENTORY API ---
-app.get('/api/inventory', (req, res) => {
+// ============================================================
+
+app.get('/api/inventory', requireStaff, (req, res) => {
   db.all("SELECT * FROM inventory ORDER BY name ASC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
 });
 
-app.post('/api/inventory', (req, res) => {
+app.post('/api/inventory', requireAdmin, (req, res) => {
   const { name, unit, quantity } = req.body;
-  db.run("INSERT INTO inventory (name, unit, quantity) VALUES (?, ?, ?)", 
+  if (!name || !unit) return res.status(400).json({ error: 'name va unit majburiy' });
+  db.run("INSERT INTO inventory (name, unit, quantity) VALUES (?, ?, ?)",
     [name, unit, quantity || 0], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: this.lastID, name, unit, quantity });
-  });
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, name, unit, quantity });
+    });
 });
 
-app.put('/api/inventory/:id', (req, res) => {
+app.put('/api/inventory/:id', requireAdmin, (req, res) => {
   const { name, unit, quantity } = req.body;
-  db.run("UPDATE inventory SET name=?, unit=?, quantity=? WHERE id=?", 
+  db.run("UPDATE inventory SET name=?, unit=?, quantity=? WHERE id=?",
     [name, unit, quantity, req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
-  });
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    });
 });
 
-app.delete('/api/inventory/:id', (req, res) => {
+app.delete('/api/inventory/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM inventory WHERE id=?", req.params.id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
+// ============================================================
 // --- RECIPE API ---
-app.get('/api/menu/:id/ingredients', (req, res) => {
+// ============================================================
+
+app.get('/api/menu/:id/ingredients', requireStaff, (req, res) => {
   db.all(`
     SELECT ri.id, ri.inventory_id, ri.amount, i.name, i.unit 
     FROM recipe_ingredients ri 
@@ -464,37 +710,54 @@ app.get('/api/menu/:id/ingredients', (req, res) => {
   });
 });
 
-app.post('/api/menu/:id/ingredients', (req, res) => {
+app.post('/api/menu/:id/ingredients', requireAdmin, (req, res) => {
   const { inventory_id, amount } = req.body;
-  db.run("INSERT INTO recipe_ingredients (menu_item_id, inventory_id, amount) VALUES (?, ?, ?)", 
+  db.run("INSERT INTO recipe_ingredients (menu_item_id, inventory_id, amount) VALUES (?, ?, ?)",
     [req.params.id, inventory_id, amount], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: this.lastID, menu_item_id: req.params.id, inventory_id, amount });
-  });
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID, menu_item_id: req.params.id, inventory_id, amount });
+    });
 });
 
-app.delete('/api/menu/ingredients/:id', (req, res) => {
+app.delete('/api/menu/ingredients/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM recipe_ingredients WHERE id=?", req.params.id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
+// ============================================================
 // --- AUTH API (STAFF) ---
-app.post('/api/auth/login', (req, res) => {
+// ============================================================
+
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
-  db.get("SELECT id, name, role, username, salary FROM staff WHERE username = ? AND password = ?", [username, password], (err, row) => {
+  if (!username || !password) return res.status(400).json({ error: 'username va password majburiy' });
+
+  db.get("SELECT id, name, role, username, salary, password FROM staff WHERE username = ?", [username], async (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(401).json({ error: "Login yoki parol noto'g'ri" });
+
+    if (!row.password || !row.password.startsWith('$2')) {
+      return res.status(401).json({ error: "Xavfsizlik talablari yangilandi. Iltimos adminga murojaat qilib parolingizni yangilang." });
+    }
+
+    const isValid = await bcrypt.compare(password, row.password);
+    if (!isValid) return res.status(401).json({ error: "Login yoki parol noto'g'ri" });
+
+    const { password: _, ...staffData } = row;
     const token = jwt.sign({ id: row.id, role: row.role }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ user: row, token }); 
+    res.json({ user: staffData, token });
   });
 });
 
+// ============================================================
 // --- AUTH API (CLIENT) ---
+// ============================================================
+
 app.post('/api/auth/client/register', async (req, res) => {
   const { name, email, phone, password } = req.body;
-  
+
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Barcha maydonlarni to'ldiring" });
   }
@@ -502,7 +765,7 @@ app.post('/api/auth/client/register', async (req, res) => {
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const sql = `INSERT INTO users (name, email, phone, password) VALUES (?, ?, ?, ?)`;
-    
+
     db.run(sql, [name, email, phone || null, hashedPassword], function(err) {
       if (err) {
         if (err.message.includes('UNIQUE constraint failed: users.email')) {
@@ -513,10 +776,10 @@ app.post('/api/auth/client/register', async (req, res) => {
         }
         return res.status(500).json({ error: err.message });
       }
-      
+
       const user = { id: this.lastID, name, email, phone, role: 'client' };
       const token = jwt.sign({ id: user.id, role: 'client' }, JWT_SECRET, { expiresIn: '30d' });
-      
+
       res.status(201).json({ user, token });
     });
   } catch (err) {
@@ -526,7 +789,7 @@ app.post('/api/auth/client/register', async (req, res) => {
 
 app.post('/api/auth/client/login', (req, res) => {
   const { email, password } = req.body;
-  
+
   if (!email || !password) {
     return res.status(400).json({ error: "Email va parolni kiriting" });
   }
@@ -534,18 +797,17 @@ app.post('/api/auth/client/login', (req, res) => {
   db.get("SELECT * FROM users WHERE email = ? OR phone = ?", [email, email], async (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
-    
-    // Agar Google yoki Telegram orqali kirilgan bo'lsa va paroli yo'q bo'lsa
+
     if (!user.password && (user.google_id || user.telegram_id)) {
       return res.status(401).json({ error: "Siz avval Google yoki Telegram orqali kirgansiz. O'sha orqali kiring." });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) return res.status(401).json({ error: "Parol noto'g'ri" });
-    
-    const { password: _, ...userData } = user; // Parolni yashirish
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    
+
+    const { password: _, ...userData } = user;
+    const token = jwt.sign({ id: user.id, role: user.role || 'client' }, JWT_SECRET, { expiresIn: '30d' });
+
     res.json({ user: userData, token });
   });
 });
@@ -571,20 +833,20 @@ app.post('/api/auth/client/google', async (req, res) => {
     }
 
     const { sub: google_id, email, name } = payload;
-    
+
     if (!google_id || !email) {
       return res.status(400).json({ error: "Google ma'lumotlari to'liq emas" });
     }
-    
+
     db.get("SELECT * FROM users WHERE google_id = ? OR email = ?", [google_id, email], (err, user) => {
       if (err) return res.status(500).json({ error: err.message });
-      
+
       if (user) {
         if (!user.google_id) {
-           db.run("UPDATE users SET google_id = ? WHERE id = ?", [google_id, user.id]);
+          db.run("UPDATE users SET google_id = ? WHERE id = ?", [google_id, user.id]);
         }
         const { password: _, ...userData } = user;
-        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+        const token = jwt.sign({ id: user.id, role: user.role || 'client' }, JWT_SECRET, { expiresIn: '30d' });
         return res.json({ user: userData, token });
       } else {
         db.run("INSERT INTO users (name, email, google_id) VALUES (?, ?, ?)", [name, email, google_id], function(err) {
@@ -603,18 +865,24 @@ app.post('/api/auth/client/google', async (req, res) => {
 app.post('/api/auth/client/telegram', (req, res) => {
   const data = req.body;
   const { hash, ...authData } = data;
-  
+
   if (!hash) return res.status(400).json({ error: "Telegram Hash topilmadi" });
   if (!BOT_TOKEN) return res.status(500).json({ error: "Serverda Telegram Bot Token topilmadi" });
+
+  // auth_date expiry tekshiruvi — 5 daqiqadan eski tokenlar rad etiladi
+  const authDate = parseInt(authData.auth_date);
+  if (!authDate || (Math.floor(Date.now() / 1000) - authDate) > 300) {
+    return res.status(401).json({ error: "Telegram autentifikatsiya muddati tugagan. Qaytadan kiring." });
+  }
 
   const secretKey = crypto.createHash('sha256').update(BOT_TOKEN).digest();
   const dataCheckString = Object.keys(authData)
     .sort()
     .map(key => `${key}=${authData[key]}`)
     .join('\n');
-    
+
   const hmac = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-  
+
   if (hmac !== hash) {
     return res.status(401).json({ error: "Telegram ma'lumotlari haqiqiy emas" });
   }
@@ -624,10 +892,10 @@ app.post('/api/auth/client/telegram', (req, res) => {
 
   db.get("SELECT * FROM users WHERE telegram_id = ?", [telegram_id], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
-    
+
     if (user) {
       const { password: _, ...userData } = user;
-      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+      const token = jwt.sign({ id: user.id, role: user.role || 'client' }, JWT_SECRET, { expiresIn: '30d' });
       return res.json({ user: userData, token });
     } else {
       db.run("INSERT INTO users (name, telegram_id) VALUES (?, ?)", [name, telegram_id], function(err) {
@@ -643,10 +911,11 @@ app.post('/api/auth/client/telegram', (req, res) => {
 app.post('/api/auth/client/telegram/verify', (req, res) => {
   const { code, device, os, location, time } = req.body;
   if (!code) return res.status(400).json({ error: "Kodni kiriting" });
-  
+
   const authData = global.telegramVerificationCodes?.[code];
-  if (!authData) {
-    return res.status(400).json({ error: "Kod noto'g'ri yoki yaroqsiz" });
+  if (!authData || (authData.expires_at && Date.now() > authData.expires_at)) {
+    if (authData) delete global.telegramVerificationCodes[code];
+    return res.status(400).json({ error: "Kod noto'g'ri yoki vaqti o'tib ketgan" });
   }
 
   const { telegram_id, first_name, last_name, username, phone } = authData;
@@ -654,59 +923,72 @@ app.post('/api/auth/client/telegram/verify', (req, res) => {
 
   db.get("SELECT * FROM users WHERE telegram_id = ?", [telegram_id], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
-    
-    delete global.telegramVerificationCodes[code]; // Cleanup
+
+    delete global.telegramVerificationCodes[code];
 
     if (user) {
-      // Agar bazada raqami bo'lmasa, uni saqlab qo'yamiz
       if (phone && !user.phone) {
-         db.run("UPDATE users SET phone = ? WHERE id = ?", [phone, user.id]);
-         user.phone = phone;
+        db.run("UPDATE users SET phone = ? WHERE id = ?", [phone, user.id]);
+        user.phone = phone;
       }
       const { password: _, ...userData } = user;
-      const jwtToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-      
-      // Xavfsizlik xabarnomasi yuborish
+      const jwtToken = jwt.sign({ id: user.id, role: user.role || 'client' }, JWT_SECRET, { expiresIn: '30d' });
+
       sendSecurityAlertToUser(telegram_id, { device, os, location, time });
-      
+
       return res.json({ status: 'success', user: userData, token: jwtToken });
     } else {
       db.run("INSERT INTO users (name, telegram_id, phone) VALUES (?, ?, ?)", [name, telegram_id, phone || null], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         const newUser = { id: this.lastID, name, telegram_id, phone: phone || null, role: 'client' };
         const jwtToken = jwt.sign({ id: newUser.id, role: 'client' }, JWT_SECRET, { expiresIn: '30d' });
-        
+
         sendSecurityAlertToUser(telegram_id, { device, os, location, time });
-        
+
         res.status(201).json({ status: 'success', user: newUser, token: jwtToken });
       });
     }
   });
 });
 
-app.put('/api/auth/client/update', (req, res) => {
-  const { id, name, phone, email } = req.body;
+// Profile update — faqat o'zining ma'lumotlarini o'zgartirish
+app.put('/api/auth/client/update', requireClient, (req, res) => {
+  const { id, name, phone, email, birthday } = req.body;
   if (!id) return res.status(400).json({ error: "Foydalanuvchi IDsi kerak" });
-  
-  db.run("UPDATE users SET name = ?, phone = ?, email = ? WHERE id = ?", [name, phone, email, id], function(err) {
-    if (err) {
-      if (err.message.includes('UNIQUE constraint failed: users.email')) {
-        return res.status(400).json({ error: "Bu email allaqachon band" });
+
+  // IDOR fix
+  if (req.user.id !== parseInt(id)) {
+    return res.status(403).json({ error: 'Ruxsat yo\'q' });
+  }
+
+  db.run(
+    "UPDATE users SET name = ?, phone = ?, email = ?, birthday = ? WHERE id = ?",
+    [name, phone, email, birthday || null, id],
+    function(err) {
+      if (err) {
+        if (err.message.includes('UNIQUE constraint failed: users.email') || err.message.includes('users_email')) {
+          return res.status(400).json({ error: "Bu email allaqachon band" });
+        }
+        if (err.message.includes('UNIQUE constraint failed: users.phone') || err.message.includes('users_phone')) {
+          return res.status(400).json({ error: "Bu raqam allaqachon band" });
+        }
+        return res.status(500).json({ error: err.message });
       }
-      if (err.message.includes('UNIQUE constraint failed: users.phone')) {
-        return res.status(400).json({ error: "Bu raqam allaqachon band" });
-      }
-      return res.status(500).json({ error: err.message });
+
+      db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const { password: _, ...userData } = user;
+        res.json(userData);
+      });
     }
-    
-    db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
-      if (err) return res.status(500).json({ error: err.message });
-      const { password: _, ...userData } = user;
-      res.json(userData);
-    });
-  });
+  );
 });
-app.get('/api/auth/client/me/:id', (req, res) => {
+
+// O'zining profil ma'lumotlarini olish — IDOR fix
+app.get('/api/auth/client/me/:id', requireClient, (req, res) => {
+  if (req.user.id !== parseInt(req.params.id)) {
+    return res.status(403).json({ error: 'Ruxsat yo\'q' });
+  }
   db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(404).json({ error: "Foydalanuvchi topilmadi" });
@@ -715,7 +997,10 @@ app.get('/api/auth/client/me/:id', (req, res) => {
   });
 });
 
+// ============================================================
 // --- CATEGORIES API ---
+// ============================================================
+
 app.get('/api/categories', (req, res) => {
   db.all("SELECT * FROM categories", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -723,10 +1008,10 @@ app.get('/api/categories', (req, res) => {
   });
 });
 
-app.post('/api/categories', (req, res) => {
+app.post('/api/categories', requireAdmin, (req, res) => {
   const { name, name_ru, emoji, color, bg, available, is_quick } = req.body;
-  db.run("INSERT INTO categories (name, name_ru, emoji, color, bg, available, is_quick) VALUES (?, ?, ?, ?, ?, ?, ?)", 
-    [name, name_ru || '', emoji, color || 'text-gray-500', bg || 'bg-gray-100', available === undefined ? 1 : available, is_quick ? 1 : 0], 
+  db.run("INSERT INTO categories (name, name_ru, emoji, color, bg, available, is_quick) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [name, name_ru || '', emoji, color || 'text-gray-500', bg || 'bg-gray-100', available === undefined ? true : !!available, !!is_quick],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, ...req.body });
@@ -734,10 +1019,10 @@ app.post('/api/categories', (req, res) => {
   );
 });
 
-app.put('/api/categories/:id', (req, res) => {
+app.put('/api/categories/:id', requireAdmin, (req, res) => {
   const { name, name_ru, emoji, color, bg, available, is_quick } = req.body;
-  db.run("UPDATE categories SET name=?, name_ru=?, emoji=?, color=?, bg=?, available=?, is_quick=? WHERE id=?", 
-    [name, name_ru || '', emoji, color, bg, available, is_quick ? 1 : 0, req.params.id], 
+  db.run("UPDATE categories SET name=?, name_ru=?, emoji=?, color=?, bg=?, available=?, is_quick=? WHERE id=?",
+    [name, name_ru || '', emoji, color, bg, !!available, !!is_quick, req.params.id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, id: req.params.id });
@@ -745,14 +1030,17 @@ app.put('/api/categories/:id', (req, res) => {
   );
 });
 
-app.delete('/api/categories/:id', (req, res) => {
+app.delete('/api/categories/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM categories WHERE id=?", req.params.id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
+// ============================================================
 // --- BANNERS API ---
+// ============================================================
+
 app.get('/api/banners', (req, res) => {
   db.all("SELECT * FROM banners", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -760,10 +1048,10 @@ app.get('/api/banners', (req, res) => {
   });
 });
 
-app.post('/api/banners', (req, res) => {
+app.post('/api/banners', requireAdmin, (req, res) => {
   const { title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type, link_id } = req.body;
-  db.run("INSERT INTO banners (title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type, link_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-    [title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type || 'none', link_id || null], 
+  db.run("INSERT INTO banners (title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type, link_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type || 'none', link_id || null],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, ...req.body });
@@ -771,10 +1059,10 @@ app.post('/api/banners', (req, res) => {
   );
 });
 
-app.put('/api/banners/:id', (req, res) => {
+app.put('/api/banners/:id', requireAdmin, (req, res) => {
   const { title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type, link_id } = req.body;
-  db.run("UPDATE banners SET title=?, subtitle=?, bg_color=?, text_color=?, sub_text_color=?, emoji1=?, emoji2=?, emoji3=?, link_type=?, link_id=? WHERE id=?", 
-    [title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type || 'none', link_id || null, req.params.id], 
+  db.run("UPDATE banners SET title=?, subtitle=?, bg_color=?, text_color=?, sub_text_color=?, emoji1=?, emoji2=?, emoji3=?, link_type=?, link_id=? WHERE id=?",
+    [title, subtitle, bg_color, text_color, sub_text_color, emoji1, emoji2, emoji3, link_type || 'none', link_id || null, req.params.id],
     function(err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, id: req.params.id });
@@ -782,14 +1070,17 @@ app.put('/api/banners/:id', (req, res) => {
   );
 });
 
-app.delete('/api/banners/:id', (req, res) => {
+app.delete('/api/banners/:id', requireAdmin, (req, res) => {
   db.run("DELETE FROM banners WHERE id=?", req.params.id, function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
-// Settings Endpoints
+// ============================================================
+// --- SETTINGS API ---
+// ============================================================
+
 app.get('/api/settings', (req, res) => {
   db.all('SELECT * FROM settings', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -799,7 +1090,7 @@ app.get('/api/settings', (req, res) => {
   });
 });
 
-app.put('/api/settings', (req, res) => {
+app.put('/api/settings', requireAdmin, (req, res) => {
   const settings = req.body;
   const stmt = db.prepare('INSERT OR REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)');
   for (const [key, value] of Object.entries(settings)) {
@@ -809,7 +1100,13 @@ app.put('/api/settings', (req, res) => {
   res.json({ success: true });
 });
 
+// ============================================================
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server http://localhost:${PORT} da ishga tushdi`);
+  });
+}
+
+module.exports = app;

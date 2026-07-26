@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, CheckCircle2, XCircle, FileText, Save } from 'lucide-react';
 
@@ -17,8 +18,8 @@ const MenuManagement = () => {
   const fetchData = async () => {
     try {
       const [menuRes, catRes] = await Promise.all([
-        fetch('/api/menu'),
-        fetch('/api/categories')
+        apiFetch('/api/menu'),
+        apiFetch('/api/categories')
       ]);
       if (menuRes.ok) setItems(await menuRes.json());
       if (catRes.ok) setCategories(await catRes.json());
@@ -34,7 +35,7 @@ const MenuManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await fetch('/api/menu', {
+      await apiFetch('/api/menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -48,7 +49,7 @@ const MenuManagement = () => {
   const handleDelete = async (id) => {
     if (!confirm("Haqiqatan ham o'chirmoqchimisiz?")) return;
     try {
-      await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/menu/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };
@@ -57,8 +58,8 @@ const MenuManagement = () => {
     setRecipeModalItem(item);
     try {
       const [invRes, recRes] = await Promise.all([
-        fetch('/api/inventory'),
-        fetch(`/api/menu/${item.id}/ingredients`)
+        apiFetch('/api/inventory'),
+        apiFetch(`/api/menu/${item.id}/ingredients`)
       ]);
       if (invRes.ok) setInventoryItems(await invRes.json());
       if (recRes.ok) setRecipeIngredients(await recRes.json());
@@ -69,22 +70,22 @@ const MenuManagement = () => {
     e.preventDefault();
     if (!newIngredient.inventory_id || !newIngredient.amount) return;
     try {
-      await fetch(`/api/menu/${recipeModalItem.id}/ingredients`, {
+      await apiFetch(`/api/menu/${recipeModalItem.id}/ingredients`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newIngredient)
       });
       setNewIngredient({ inventory_id: '', amount: '' });
       // Refresh ingredients
-      const recRes = await fetch(`/api/menu/${recipeModalItem.id}/ingredients`);
+      const recRes = await apiFetch(`/api/menu/${recipeModalItem.id}/ingredients`);
       if (recRes.ok) setRecipeIngredients(await recRes.json());
     } catch (e) { console.error(e); }
   };
 
   const deleteIngredient = async (id) => {
     try {
-      await fetch(`/api/menu/ingredients/${id}`, { method: 'DELETE' });
-      const recRes = await fetch(`/api/menu/${recipeModalItem.id}/ingredients`);
+      await apiFetch(`/api/menu/ingredients/${id}`, { method: 'DELETE' });
+      const recRes = await apiFetch(`/api/menu/${recipeModalItem.id}/ingredients`);
       if (recRes.ok) setRecipeIngredients(await recRes.json());
     } catch (e) { console.error(e); }
   };

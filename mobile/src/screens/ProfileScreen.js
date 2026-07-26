@@ -1,5 +1,5 @@
 import React, { useContext, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal, ScrollView, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { User, LogOut, MapPin, Navigation, Star, Edit3, Save, ChevronRight, Globe } from 'lucide-react-native';
 import * as Location from 'expo-location';
@@ -47,7 +47,13 @@ export default function ProfileScreen() {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editBirthday, setEditBirthday] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [birthdayPickerVisible, setBirthdayPickerVisible] = useState(false);
+  // Temp picker state
+  const [pickerDay, setPickerDay] = useState(1);
+  const [pickerMonth, setPickerMonth] = useState(1);
+  const [pickerYear, setPickerYear] = useState(2000);
 
   // Rating States
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
@@ -60,6 +66,13 @@ export default function ProfileScreen() {
       setEditName(user.name || '');
       setEditPhone(user.phone || '');
       setEditEmail(user.email || '');
+      setEditBirthday(user.birthday ? user.birthday.split('T')[0] : '');
+      if (user.birthday) {
+        const d = new Date(user.birthday);
+        setPickerDay(d.getDate());
+        setPickerMonth(d.getMonth() + 1);
+        setPickerYear(d.getFullYear());
+      }
       fetchOrders();
     }
   }, [user]);
@@ -110,7 +123,8 @@ export default function ProfileScreen() {
         id: user.id,
         name: editName,
         phone: editPhone,
-        email: editEmail
+        email: editEmail,
+        birthday: editBirthday || null
       });
       login(res.data, user.token);
       setIsEditing(false);
@@ -121,6 +135,56 @@ export default function ProfileScreen() {
       setLoading(false);
     }
   };
+
+  const formatBirthday = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  };
+
+  const getAge = (dateStr) => {
+    if (!dateStr) return null;
+    const bd = new Date(dateStr);
+    if (isNaN(bd.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - bd.getFullYear();
+    const m = today.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < bd.getDate())) age--;
+    return age;
+  };
+
+  const confirmBirthdayPick = () => {
+    const pad = (n) => n.toString().padStart(2, '0');
+    const dateStr = `${pickerYear}-${pad(pickerMonth)}-${pad(pickerDay)}`;
+    setEditBirthday(dateStr);
+    setBirthdayPickerVisible(false);
+  };
+
+  const openBirthdayPicker = () => {
+    if (editBirthday) {
+      const d = new Date(editBirthday);
+      setPickerDay(d.getDate());
+      setPickerMonth(d.getMonth() + 1);
+      setPickerYear(d.getFullYear());
+    } else {
+      setPickerDay(1);
+      setPickerMonth(1);
+      setPickerYear(2000);
+    }
+    setBirthdayPickerVisible(true);
+  };
+
+  const MONTHS_UZ = ['Yanvar','Fevral','Mart','Aprel','May','Iyun','Iyul','Avgust','Sentyabr','Oktyabr','Noyabr','Dekabr'];
+  const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  const MONTHS = i18n.language === 'ru' ? MONTHS_RU : MONTHS_UZ;
+  const currentYear = new Date().getFullYear();
+  const YEARS = Array.from({ length: 100 }, (_, i) => currentYear - i);
+  const getDaysInMonth = (month, year) => new Date(year, month, 0).getDate();
+  const DAYS = Array.from({ length: getDaysInMonth(pickerMonth, pickerYear) }, (_, i) => i + 1);
 
   const submitRating = async () => {
     if (!selectedOrderToRate || rating === 0) return;
@@ -274,7 +338,7 @@ export default function ProfileScreen() {
   if (!user?.isLoggedIn) {
     if (telegramFlowStep > 0) {
       return (
-        <View style={styles.authContainer}>
+        <View style={[styles.authContainer, { backgroundColor: '#1A1A1A' }]}>
           <View style={styles.authHeader}>
             <View style={styles.authIconWrap}>
               <Navigation size={28} color="#3B82F6" />
@@ -300,7 +364,7 @@ export default function ProfileScreen() {
                   keyboardType="number-pad"
                   placeholder="------"
                   maxLength={6}
-                  placeholderTextColor="rgba(167,146,119,0.3)"
+                  placeholderTextColor="#555555"
                 />
                 <TouchableOpacity style={styles.primaryBtn} onPress={handleTelegramVerify} disabled={loading} activeOpacity={0.8}>
                   {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>{t('confirm_login', 'Tasdiqlash va Kirish')}</Text>}
@@ -316,7 +380,7 @@ export default function ProfileScreen() {
     }
 
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: '#FFF2E1' }} contentContainerStyle={styles.authContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, backgroundColor: '#1A1A1A' }} contentContainerStyle={styles.authContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.authHeader}>
           <View style={styles.authIconWrap}>
             <User size={28} color="#FF4747" />
@@ -349,7 +413,7 @@ export default function ProfileScreen() {
               value={name}
               onChangeText={setName}
               placeholder={t('name_placeholder', "Ismingiz")}
-              placeholderTextColor="rgba(167,146,119,0.5)"
+              placeholderTextColor="#555555"
             />
           )}
           
@@ -358,7 +422,7 @@ export default function ProfileScreen() {
             value={email}
             onChangeText={setEmail}
             placeholder={t('email_placeholder', "Email manzil yoki Telefon raqam")}
-            placeholderTextColor="rgba(167,146,119,0.5)"
+            placeholderTextColor="#555555"
             autoCapitalize="none"
           />
           
@@ -367,7 +431,7 @@ export default function ProfileScreen() {
             value={password}
             onChangeText={setPassword}
             placeholder={t('password', "Parol")}
-            placeholderTextColor="rgba(167,146,119,0.5)"
+            placeholderTextColor="#555555"
             secureTextEntry
           />
           
@@ -441,9 +505,21 @@ export default function ProfileScreen() {
               <View style={{ flex: 1 }}>
                 {isEditing ? (
                   <>
-                    <TextInput style={styles.editInput} value={editName} onChangeText={setEditName} placeholder={t('name_placeholder', "Ism")} placeholderTextColor="rgba(167,146,119,0.5)" />
-                    <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder={t('phone', "Telefon raqam")} keyboardType="phone-pad" placeholderTextColor="rgba(167,146,119,0.5)" />
-                    <TextInput style={styles.editInput} value={editEmail} onChangeText={setEditEmail} placeholder={t('email_placeholder', "Email")} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="rgba(167,146,119,0.5)" />
+                    <TextInput style={styles.editInput} value={editName} onChangeText={setEditName} placeholder={t('name_placeholder', "Ism")} placeholderTextColor="#555555" />
+                    <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder={t('phone', "Telefon raqam")} keyboardType="phone-pad" placeholderTextColor="#555555" />
+                    <TextInput style={styles.editInput} value={editEmail} onChangeText={setEditEmail} placeholder={t('email_placeholder', "Email")} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#555555" />
+                    {/* Birthday Picker Button */}
+                    <TouchableOpacity style={styles.birthdayPickerBtn} onPress={openBirthdayPicker} activeOpacity={0.8}>
+                      <Text style={styles.birthdayPickerIcon}>🎂</Text>
+                      <Text style={[styles.birthdayPickerText, editBirthday ? styles.birthdayPickerTextFilled : {}]}>
+                        {editBirthday ? formatBirthday(editBirthday) : (i18n.language === 'ru' ? 'Дата рождения' : "Tug'ilgan kun")}
+                      </Text>
+                      {editBirthday && (
+                        <TouchableOpacity onPress={() => setEditBirthday('')} style={styles.birthdayClearBtn}>
+                          <Text style={styles.birthdayClearText}>✕</Text>
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.saveProfileBtn} onPress={handleSaveProfile}>
                       {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.saveProfileBtnText}>{t('save', 'Saqlash')}</Text>}
                     </TouchableOpacity>
@@ -453,6 +529,15 @@ export default function ProfileScreen() {
                     <Text style={styles.userName}>{user.name || t('guest', 'Mijoz')}</Text>
                     <Text style={styles.userInfo}>{user.phone || t('not_entered', 'Kiritilmagan')}</Text>
                     <Text style={styles.userInfo}>{user.email || t('not_entered', 'Kiritilmagan')}</Text>
+                    {user.birthday && (
+                      <View style={styles.birthdayRow}>
+                        <Text style={styles.birthdayIcon}>🎂</Text>
+                        <Text style={styles.birthdayText}>
+                          {formatBirthday(user.birthday)}
+                          {getAge(user.birthday) !== null ? `  •  ${getAge(user.birthday)} ${i18n.language === 'ru' ? 'лет' : 'yosh'}` : ''}
+                        </Text>
+                      </View>
+                    )}
                     <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}>
                       <Edit3 size={14} color="#A79277" />
                       <Text style={styles.editProfileBtnText}>{t('edit', 'Tahrirlash')}</Text>
@@ -497,7 +582,7 @@ export default function ProfileScreen() {
                   value={tempAddress}
                   onChangeText={setTempAddress}
                   placeholder={t('enter_address', "Manzilni kiriting...")}
-                  placeholderTextColor="rgba(167,146,119,0.5)"
+                  placeholderTextColor="#555555"
                 />
                 <TouchableOpacity onPress={fetchLocation} style={styles.locationBtn}>
                   {locating ? (
@@ -598,7 +683,7 @@ export default function ProfileScreen() {
               onChangeText={setRatingComment}
               multiline
               numberOfLines={3}
-              placeholderTextColor="rgba(167,146,119,0.5)"
+              placeholderTextColor="#555555"
             />
             
             <View style={styles.modalActions}>
@@ -612,105 +697,232 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Birthday Picker Modal */}
+      <Modal visible={birthdayPickerVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setBirthdayPickerVisible(false)} activeOpacity={1} />
+          <View style={[styles.modalContent, { paddingBottom: 30 }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>🎂 {i18n.language === 'ru' ? "Дата рождения" : "Tug'ilgan kun"}</Text>
+
+            <View style={styles.pickerContainer}>
+              {/* Day */}
+              <View style={styles.pickerCol}>
+                <Text style={styles.pickerLabel}>{i18n.language === 'ru' ? 'День' : 'Kun'}</Text>
+                <ScrollView
+                  style={styles.pickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                >
+                  {DAYS.map(d => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.pickerItem, pickerDay === d && styles.pickerItemActive]}
+                      onPress={() => setPickerDay(d)}
+                    >
+                      <Text style={[styles.pickerItemText, pickerDay === d && styles.pickerItemTextActive]}>
+                        {d.toString().padStart(2, '0')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Month */}
+              <View style={[styles.pickerCol, { flex: 2 }]}>
+                <Text style={styles.pickerLabel}>{i18n.language === 'ru' ? 'Месяц' : 'Oy'}</Text>
+                <ScrollView
+                  style={styles.pickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                >
+                  {MONTHS.map((m, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[styles.pickerItem, pickerMonth === idx + 1 && styles.pickerItemActive]}
+                      onPress={() => setPickerMonth(idx + 1)}
+                    >
+                      <Text style={[styles.pickerItemText, pickerMonth === idx + 1 && styles.pickerItemTextActive]}>
+                        {m}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* Year */}
+              <View style={styles.pickerCol}>
+                <Text style={styles.pickerLabel}>{i18n.language === 'ru' ? 'Год' : 'Yil'}</Text>
+                <ScrollView
+                  style={styles.pickerScroll}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                >
+                  {YEARS.map(y => (
+                    <TouchableOpacity
+                      key={y}
+                      style={[styles.pickerItem, pickerYear === y && styles.pickerItemActive]}
+                      onPress={() => setPickerYear(y)}
+                    >
+                      <Text style={[styles.pickerItemText, pickerYear === y && styles.pickerItemTextActive]}>
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setBirthdayPickerVisible(false)}>
+                <Text style={styles.modalCancelText}>{t('cancel', 'Bekor qilish')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalSubmitBtn} onPress={confirmBirthdayPick}>
+                <Text style={styles.modalSubmitText}>{t('save', 'Saqlash')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   // Auth styles
-  authContainer: { flexGrow: 1, backgroundColor: '#FFF2E1', padding: 24, justifyContent: 'center' },
+  authContainer: { flexGrow: 1, backgroundColor: '#1A1A1A', padding: 24, justifyContent: 'center' },
   authHeader: { alignItems: 'center', marginBottom: 32 },
-  authIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,71,71,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  authTitle: { fontSize: 28, fontWeight: '900', color: '#A79277', marginBottom: 8, letterSpacing: -0.5, textAlign: 'center' },
-  authSubtitle: { fontSize: 15, color: '#A79277', fontWeight: '500', opacity: 0.7, textAlign: 'center', lineHeight: 22 },
+  authIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,71,71,0.12)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
+  authTitle: { fontSize: 28, fontWeight: '900', color: '#FFFFFF', marginBottom: 8, letterSpacing: -0.5, textAlign: 'center' },
+  authSubtitle: { fontSize: 15, color: '#AAAAAA', fontWeight: '500', textAlign: 'center', lineHeight: 22 },
   authForm: { marginBottom: 24 },
-  authInput: { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, marginBottom: 14, fontSize: 16, color: '#A79277', borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)', fontWeight: '500' },
-  primaryBtn: { backgroundColor: '#FF4747', padding: 18, borderRadius: 18, alignItems: 'center', marginTop: 8, shadowColor: '#FF4747', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
-  primaryBtnText: { fontSize: 17, fontWeight: '900', color: '#FFF2E1' },
+  authInput: { backgroundColor: '#252525', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, marginBottom: 14, fontSize: 16, color: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', fontWeight: '500' },
+  primaryBtn: { backgroundColor: '#FF4747', padding: 18, borderRadius: 18, alignItems: 'center', marginTop: 8, shadowColor: '#FF4747', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
+  primaryBtnText: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
   toggleContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
-  toggleText: { color: '#A79277', fontSize: 14, opacity: 0.7 },
+  toggleText: { color: '#AAAAAA', fontSize: 14 },
   toggleLink: { color: '#FF4747', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
   
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(167,146,119,0.15)' },
-  dividerText: { marginHorizontal: 16, color: '#A79277', fontWeight: '600', fontSize: 13, opacity: 0.6 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+  dividerText: { marginHorizontal: 16, color: '#AAAAAA', fontWeight: '600', fontSize: 13 },
   
   socialContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, gap: 12 },
-  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)', gap: 8 },
+  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#252525', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', gap: 8 },
   socialIcon: { fontSize: 18, fontWeight: 'bold', color: '#DB4437' },
-  socialBtnText: { fontSize: 15, fontWeight: '700', color: '#A79277' },
+  socialBtnText: { fontSize: 15, fontWeight: '700', color: '#AAAAAA' },
 
   // Logged-in styles
-  container: { flex: 1, backgroundColor: '#FFF2E1' },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 10 },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: '#A79277', letterSpacing: -0.5 },
+  container: { flex: 1, backgroundColor: '#1A1A1A' },
+  header: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 10 },
+  headerTitle: { fontSize: 26, fontWeight: '900', color: '#FFFFFF', letterSpacing: -0.5 },
   
-  tabContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 10, gap: 4 },
+  tabContainer: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 10, gap: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabBtnActive: { borderBottomColor: '#FF4747' },
-  tabText: { fontSize: 15, fontWeight: '600', color: '#A79277', opacity: 0.5 },
-  tabTextActive: { color: '#A79277', fontWeight: '800', opacity: 1 },
+  tabText: { fontSize: 15, fontWeight: '600', color: '#666666' },
+  tabTextActive: { color: '#FFFFFF', fontWeight: '800' },
 
-  content: { padding: 20 },
-  profileCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#fff', padding: 20, borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(167,146,119,0.1)' },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,71,71,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  content: { padding: 16 },
+  profileCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#252525', padding: 18, borderRadius: 22, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  avatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,71,71,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 14, borderWidth: 1, borderColor: 'rgba(255,71,71,0.3)' },
   avatarText: { fontSize: 24, fontWeight: '900', color: '#FF4747' },
-  userName: { fontSize: 20, fontWeight: '900', color: '#A79277', marginBottom: 4 },
-  userInfo: { fontSize: 14, color: '#A79277', fontWeight: '500', marginBottom: 2, opacity: 0.7 },
+  userName: { fontSize: 19, fontWeight: '900', color: '#FFFFFF', marginBottom: 4 },
+  userInfo: { fontSize: 13, color: '#AAAAAA', fontWeight: '500', marginBottom: 2 },
   
-  editInput: { backgroundColor: 'rgba(255,242,225,0.5)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, fontSize: 14, borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)', color: '#A79277', fontWeight: '500' },
-  editProfileBtn: { marginTop: 10, backgroundColor: 'rgba(247,233,152,0.4)', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: '#F7E998' },
-  editProfileBtnText: { fontSize: 13, fontWeight: '700', color: '#A79277' },
+  editInput: { backgroundColor: '#2E2E2E', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8, fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', color: '#FFFFFF', fontWeight: '500' },
+  editProfileBtn: { marginTop: 10, backgroundColor: 'rgba(255,255,255,0.06)', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  editProfileBtnText: { fontSize: 13, fontWeight: '700', color: '#AAAAAA' },
   saveProfileBtn: { marginTop: 8, backgroundColor: '#FF4747', alignSelf: 'flex-start', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12 },
-  saveProfileBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF2E1' },
+  saveProfileBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   
-  cashbackCard: { backgroundColor: 'rgba(247,233,152,0.4)', borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: '#F7E998', overflow: 'hidden' },
-  cashbackInner: { padding: 24, alignItems: 'center' },
-  cashbackTitle: { fontSize: 14, fontWeight: '700', color: '#A79277', marginBottom: 8, opacity: 0.7 },
-  cashbackValue: { fontSize: 36, fontWeight: '900', color: '#A79277' },
-  cashbackSuffix: { fontSize: 14, fontWeight: '600', color: '#A79277', opacity: 0.6, marginTop: 2 },
+  cashbackCard: { backgroundColor: '#2E1A1A', borderRadius: 22, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)', overflow: 'hidden' },
+  cashbackInner: { padding: 22, alignItems: 'center' },
+  cashbackTitle: { fontSize: 14, fontWeight: '700', color: '#AAAAAA', marginBottom: 8 },
+  cashbackValue: { fontSize: 36, fontWeight: '900', color: '#FF4747' },
+  cashbackSuffix: { fontSize: 14, fontWeight: '600', color: '#AAAAAA', marginTop: 2 },
 
-  section: { backgroundColor: '#fff', padding: 20, borderRadius: 24, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(167,146,119,0.1)' },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#A79277', marginBottom: 16 },
-  addressInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,242,225,0.5)', borderRadius: 16, paddingHorizontal: 14, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)' },
-  addressInput: { flex: 1, paddingVertical: 14, fontSize: 15, fontWeight: '600', color: '#A79277' },
-  locationBtn: { padding: 8, backgroundColor: 'rgba(255,71,71,0.1)', borderRadius: 12, marginLeft: 8 },
-  saveBtn: { backgroundColor: '#FF4747', padding: 16, borderRadius: 16, alignItems: 'center' },
-  saveBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF2E1' },
+  section: { backgroundColor: '#252525', padding: 18, borderRadius: 22, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#FFFFFF', marginBottom: 14 },
+  addressInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2E2E2E', borderRadius: 14, paddingHorizontal: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  addressInput: { flex: 1, paddingVertical: 14, fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  locationBtn: { padding: 8, backgroundColor: 'rgba(255,71,71,0.12)', borderRadius: 12, marginLeft: 8 },
+  saveBtn: { backgroundColor: '#FF4747', padding: 15, borderRadius: 14, alignItems: 'center' },
+  saveBtnText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
   
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,71,71,0.08)', padding: 18, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,71,71,0.08)', padding: 18, borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
   logoutBtnText: { marginLeft: 10, fontSize: 16, fontWeight: '700', color: '#FF4747' },
 
-  langBtn: { flex: 1, paddingVertical: 14, backgroundColor: 'rgba(255,242,225,0.5)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)', alignItems: 'center' },
+  langBtn: { flex: 1, paddingVertical: 13, backgroundColor: '#2E2E2E', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center' },
   langBtnActive: { backgroundColor: '#FF4747', borderColor: '#FF4747' },
-  langBtnText: { fontSize: 15, fontWeight: '700', color: '#A79277' },
-  langBtnTextActive: { color: '#FFF2E1' },
+  langBtnText: { fontSize: 14, fontWeight: '700', color: '#AAAAAA' },
+  langBtnTextActive: { color: '#FFFFFF' },
 
-  emptyOrdersText: { textAlign: 'center', fontSize: 16, color: '#A79277', fontWeight: '600', opacity: 0.6 },
-  orderCard: { backgroundColor: '#fff', borderRadius: 20, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(167,146,119,0.1)' },
+  emptyOrdersText: { textAlign: 'center', fontSize: 16, color: '#AAAAAA', fontWeight: '600' },
+  orderCard: { backgroundColor: '#252525', borderRadius: 18, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  orderId: { fontSize: 17, fontWeight: '900', color: '#A79277' },
+  orderId: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
   statusText: { fontSize: 11, fontWeight: '800' },
-  orderDate: { fontSize: 12, color: '#A79277', fontWeight: '500', marginBottom: 14, opacity: 0.5 },
-  orderItems: { backgroundColor: 'rgba(255,242,225,0.5)', borderRadius: 14, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(167,146,119,0.08)' },
-  orderItemRow: { fontSize: 13, color: '#A79277', marginBottom: 3, fontWeight: '500' },
-  orderFooter: { borderTopWidth: 1, borderTopColor: 'rgba(167,146,119,0.1)', paddingTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderTotal: { fontSize: 15, fontWeight: '900', color: '#A79277' },
-  rateBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,71,71,0.08)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
+  orderDate: { fontSize: 12, color: '#666666', fontWeight: '500', marginBottom: 12 },
+  orderItems: { backgroundColor: '#2E2E2E', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  orderItemRow: { fontSize: 13, color: '#AAAAAA', marginBottom: 3, fontWeight: '500' },
+  orderFooter: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  orderTotal: { fontSize: 14, fontWeight: '900', color: '#FFFFFF' },
+  rateBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,71,71,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 6, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
   rateBtnText: { color: '#FF4747', fontWeight: '700', fontSize: 13 },
   
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: '#A79277', marginBottom: 6, textAlign: 'center' },
-  modalSubtitle: { fontSize: 14, color: '#A79277', textAlign: 'center', marginBottom: 24, opacity: 0.6 },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)' },
+  modalContent: { backgroundColor: '#252525', borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 22, paddingBottom: 40, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)' },
+  modalHandle: { width: 40, height: 4, backgroundColor: '#444444', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginBottom: 6, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: '#AAAAAA', textAlign: 'center', marginBottom: 24 },
   starsContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 24, gap: 8 },
-  commentInput: { backgroundColor: 'rgba(255,242,225,0.5)', borderRadius: 16, padding: 16, fontSize: 15, minHeight: 90, textAlignVertical: 'top', marginBottom: 24, borderWidth: 1, borderColor: 'rgba(167,146,119,0.15)', color: '#A79277' },
+  commentInput: { backgroundColor: '#2E2E2E', borderRadius: 14, padding: 14, fontSize: 15, minHeight: 90, textAlignVertical: 'top', marginBottom: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', color: '#FFFFFF' },
   modalActions: { flexDirection: 'row', gap: 12 },
-  modalCancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, backgroundColor: 'rgba(167,146,119,0.1)', alignItems: 'center' },
-  modalCancelText: { color: '#A79277', fontWeight: '700', fontSize: 15 },
-  modalSubmitBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, backgroundColor: '#FF4747', alignItems: 'center', shadowColor: '#FF4747', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  modalSubmitText: { color: '#FFF2E1', fontWeight: '900', fontSize: 15 },
+  modalCancelBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, backgroundColor: '#2E2E2E', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  modalCancelText: { color: '#AAAAAA', fontWeight: '700', fontSize: 15 },
+  modalSubmitBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, backgroundColor: '#FF4747', alignItems: 'center', shadowColor: '#FF4747', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
+  modalSubmitText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15 },
+
+  // Birthday
+  birthdayPickerBtn: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#2E2E2E',
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 8,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)'
+  },
+  birthdayPickerIcon: { fontSize: 18, marginRight: 10 },
+  birthdayPickerText: { flex: 1, fontSize: 14, fontWeight: '500', color: '#555555' },
+  birthdayPickerTextFilled: { color: '#FFFFFF' },
+  birthdayClearBtn: { padding: 4, marginLeft: 8 },
+  birthdayClearText: { fontSize: 14, color: '#777777' },
+  birthdayRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, marginTop: 2 },
+  birthdayIcon: { fontSize: 14, marginRight: 6 },
+  birthdayText: { fontSize: 13, color: '#AAAAAA', fontWeight: '500' },
+
+  // Date Picker
+  pickerContainer: {
+    flexDirection: 'row', gap: 8, marginVertical: 16, height: 200
+  },
+  pickerCol: { flex: 1, overflow: 'hidden' },
+  pickerLabel: {
+    fontSize: 11, fontWeight: '700', color: '#666666', textAlign: 'center',
+    marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.8
+  },
+  pickerScroll: { flex: 1 },
+  pickerItem: {
+    height: 44, justifyContent: 'center', alignItems: 'center',
+    borderRadius: 10, marginBottom: 4
+  },
+  pickerItemActive: {
+    backgroundColor: 'rgba(255,71,71,0.15)',
+    borderWidth: 1, borderColor: 'rgba(255,71,71,0.3)'
+  },
+  pickerItemText: { fontSize: 15, fontWeight: '600', color: '#666666' },
+  pickerItemTextActive: { color: '#FF4747', fontWeight: '800' },
 });

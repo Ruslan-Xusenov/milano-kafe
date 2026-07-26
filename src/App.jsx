@@ -41,42 +41,42 @@ function App() {
             }>
               <Route index element={<DashboardHome />} />
               <Route path="menu" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <MenuManagement />
                 </ProtectedRoute>
               } />
               <Route path="categories" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <CategoryManagement />
                 </ProtectedRoute>
               } />
               <Route path="banners" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <BannersManagement />
                 </ProtectedRoute>
               } />
               <Route path="inventory" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <InventoryManagement />
                 </ProtectedRoute>
               } />
               <Route path="reports" element={
-                <ProtectedRoute allowedRoles={['Admin', 'Kassir']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin', 'cashier']}>
                   <Reports />
                 </ProtectedRoute>
               } />
               <Route path="staff" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <Staff />
                 </ProtectedRoute>
               } />
               <Route path="reviews" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <ReviewsManagement />
                 </ProtectedRoute>
               } />
               <Route path="settings" element={
-                <ProtectedRoute allowedRoles={['Admin']}>
+                <ProtectedRoute allowedRoles={['admin', 'superadmin']}>
                   <SettingsManagement />
                 </ProtectedRoute>
               } />

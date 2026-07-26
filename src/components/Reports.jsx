@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Calendar, DollarSign, Download, CreditCard, Smartphone } from 'lucide-react';
 
@@ -8,7 +9,7 @@ const Reports = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await fetch('/api/orders');
+        const res = await apiFetch('/api/orders');
         if (res.ok) setOrders(await res.json());
       } catch (e) { console.error(e); }
       finally { setLoading(false); }

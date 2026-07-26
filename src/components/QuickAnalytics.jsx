@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { DollarSign, ShoppingBag, Flame, Tag, XCircle } from 'lucide-react';
 
@@ -8,7 +9,7 @@ const QuickAnalytics = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const response = await fetch('/api/orders');
+        const response = await apiFetch('/api/orders');
         if (response.ok) {
           const data = await response.json();
           setOrders(data);

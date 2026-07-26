@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
 
@@ -15,8 +16,8 @@ const BannersManagement = () => {
   const fetchData = async () => {
     try {
       const [banRes, catRes] = await Promise.all([
-        fetch('/api/banners'),
-        fetch('/api/categories')
+        apiFetch('/api/banners'),
+        apiFetch('/api/categories')
       ]);
       if (banRes.ok) setBanners(await banRes.json());
       if (catRes.ok) setCategories(await catRes.json());
@@ -32,7 +33,7 @@ const BannersManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await fetch('/api/banners', {
+      await apiFetch('/api/banners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -50,7 +51,7 @@ const BannersManagement = () => {
   const handleDelete = async (id) => {
     if (!confirm("Haqiqatan ham o'chirmoqchimisiz?")) return;
     try {
-      await fetch(`/api/banners/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/banners/${id}`, { method: 'DELETE' });
       fetchData();
     } catch (e) { console.error(e); }
   };

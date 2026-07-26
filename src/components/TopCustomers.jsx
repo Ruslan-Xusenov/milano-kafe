@@ -1,3 +1,4 @@
+import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
 import { Trophy, Star, TrendingUp, User, ShoppingBag, Gift, X, Check } from 'lucide-react';
 
@@ -18,7 +19,7 @@ const TopCustomers = () => {
   useEffect(() => {
     const fetchTopCustomers = async () => {
       try {
-        const response = await fetch('/api/analytics/top-customers');
+        const response = await apiFetch('/api/analytics/top-customers');
         if (response.ok) {
           const data = await response.json();
           setCustomers(data);
@@ -32,7 +33,7 @@ const TopCustomers = () => {
 
     const fetchMenu = async () => {
       try {
-        const response = await fetch('/api/menu');
+        const response = await apiFetch('/api/menu');
         if (response.ok) {
           const data = await response.json();
           setMenuItems(data);
@@ -73,7 +74,7 @@ const TopCustomers = () => {
     }];
 
     try {
-      const response = await fetch('/api/orders/gift', {
+      const response = await apiFetch('/api/orders/gift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
