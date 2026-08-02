@@ -176,6 +176,19 @@ const tables = [
         setting_value TEXT
       )
     `
+  },
+  {
+    name: 'notifications',
+    schema: `
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        title TEXT,
+        body TEXT,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `
   }
 ];
 

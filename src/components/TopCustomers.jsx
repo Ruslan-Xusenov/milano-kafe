@@ -12,7 +12,7 @@ const TopCustomers = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [giftItem, setGiftItem] = useState('');
   const [giftQuantity, setGiftQuantity] = useState(1);
-  const [giftMessage, setGiftMessage] = useState("Milano Kafe tomonidan sizga bepul ovqat jo'natildi! Yoqimli ishtaha!");
+  const [giftMessage, setGiftMessage] = useState("Milano Foods tomonidan sizga bepul ovqat jo'natildi! Yoqimli ishtaha!");
   const [isSending, setIsSending] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 

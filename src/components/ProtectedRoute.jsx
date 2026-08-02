@@ -15,7 +15,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && user && !allowedRoles.map(r => r.toLowerCase()).includes(user.role.toLowerCase())) {
     // If role is not authorized, redirect to admin home (which they should have access to)
     return <Navigate to="/admin" replace />;
   }

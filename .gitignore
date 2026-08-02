@@ -26,3 +26,5 @@ server/node_modules
 server/cafebot.db
 .env
 server/.env
+*.apk
+*.aab

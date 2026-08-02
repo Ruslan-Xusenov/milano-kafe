@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Animated } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
@@ -18,6 +20,7 @@ const BORDER_COLOR = 'rgba(255,255,255,0.07)';
 export default function HomeScreen({ navigation }) {
   const [banners, setBanners] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentBanner, setCurrentBanner] = useState(0);
   const bannerRef = useRef(null);
@@ -40,6 +43,21 @@ export default function HomeScreen({ navigation }) {
     };
     fetchData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchNotifications = async () => {
+        try {
+          const res = await api.get('/notifications');
+          const unread = res.data.filter(n => !n.is_read).length;
+          setUnreadCount(unread);
+        } catch (error) {
+          // Ignore, user might not be logged in
+        }
+      };
+      fetchNotifications();
+    }, [])
+  );
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -73,14 +91,23 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.logoContainer}>
-            <LinearGradient colors={[ACCENT, '#CC2222']} style={styles.logoBg}>
-              <Text style={styles.logoText}>M</Text>
-            </LinearGradient>
+            <Image source={require('../../assets/milano_icon_512.png')} style={{ width: 42, height: 42, borderRadius: 12 }} />
             <View>
               <Text style={styles.headerGreeting}>{t('greeting', 'Xush kelibsiz 👋')}</Text>
-              <Text style={styles.headerTitle}>Milano Kafe</Text>
+              <Text style={styles.headerTitle}>Milano Foods</Text>
             </View>
           </View>
+          <TouchableOpacity 
+            style={styles.notificationBtn}
+            onPress={() => navigation.navigate('Notifications')}
+          >
+            <Bell size={24} color={TEXT_PRIMARY} />
+            {unreadCount > 0 && (
+              <View style={styles.badgeContainer}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -166,7 +193,11 @@ export default function HomeScreen({ navigation }) {
                     </View>
                   </View>
                   <View style={styles.categoryEmojiWrap}>
-                    <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                    {cat.emoji && cat.emoji.startsWith('http') ? (
+                      <Image source={{ uri: cat.emoji }} style={styles.categoryImage} resizeMode="contain" />
+                    ) : (
+                      <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+                    )}
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -183,7 +214,36 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: DARK_BG },
 
   header: { paddingHorizontal: 16, paddingTop: 56, paddingBottom: 14 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  notificationBtn: {
+    padding: 8,
+    backgroundColor: DARK_CARD,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER_COLOR,
+    position: 'relative'
+  },
+  badgeContainer: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: ACCENT,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logoBg: {
     width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center',
@@ -240,5 +300,6 @@ const styles = StyleSheet.create({
   },
   categoryBadgeText: { fontSize: 13, fontWeight: '800', color: ACCENT },
   categoryEmojiWrap: { alignSelf: 'flex-end' },
-  categoryEmoji: { fontSize: 46 },
+  categoryEmoji: { fontSize: 44, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 8 },
+  categoryImage: { width: 44, height: 44 }
 });

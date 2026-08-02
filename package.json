@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "start-all": "node start.js"
+    "start-all": "node start.js",
+    "build:mobile": "cd mobile && npm run build:apk"
   },
   "dependencies": {
     "i18next": "^26.3.6",

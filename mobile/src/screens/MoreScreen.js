@@ -27,7 +27,7 @@ export default function MoreScreen() {
 
   const fetchSettings = async () => {
     try {
-      const res = await axios.get(`${API_URL}/api/settings`);
+      const res = await axios.get(`${API_URL}/settings`);
       setSettings(res.data || {});
     } catch (err) {
       console.log('Error fetching settings', err);
@@ -78,8 +78,8 @@ export default function MoreScreen() {
 
         {/* Footer info */}
         <View style={styles.footerCard}>
-          <Text style={styles.footerCardTitle}>Milano Kafe</Text>
-          <Text style={styles.footerCardSub}>© 2024 Milano Kafe. Barcha huquqlar himoyalangan.</Text>
+          <Text style={styles.footerCardTitle}>Milano Foods</Text>
+          <Text style={styles.footerCardSub}>© 2026 Milano Foods. Barcha huquqlar himoyalangan.</Text>
         </View>
 
       </ScrollView>

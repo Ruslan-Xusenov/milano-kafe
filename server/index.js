@@ -27,12 +27,15 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : ['https://milano.securehub.uz'];
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, etc.)
+    // Allow requests with no origin (mobile apps, curl, etc.) or local development origins
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+    if (allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS: ' + origin));
   },
   credentials: true,
 }));
@@ -43,20 +46,34 @@ app.use(express.json({ limit: '100kb' }));
 // --- Rate limiting ---
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  max: 2000, // Increased for Kanban polling
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'So\'rovlar juda ko\'p. 15 daqiqadan so\'ng qayta urinib ko\'ring.' },
+  validate: { xForwardedForHeader: false, trustProxy: false }
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  message: { error: 'Kirishlar juda ko\'p. 15 daqiqadan so\'ng qayta urinib ko\'ring.' },
+  legacyHeaders: false,
+  message: { error: 'Xavfsizlik nuqtai nazaridan vaqtinchalik cheklov. Keyinroq urinib ko\'ring.' },
+  validate: { xForwardedForHeader: false, trustProxy: false }
 });
 
 app.use('/api/', generalLimiter);
 app.use('/api/auth/', authLimiter);
+
+app.get('/api/test-ip', (req, res) => {
+  res.json({
+    ip: req.ip,
+    ips: req.ips,
+    xff: req.headers['x-forwarded-for'],
+    trustProxy: req.app.get('trust proxy'),
+    trustProxyFn: !!req.app.get('trust proxy fn')
+  });
+});
+
 
 // ============================================================
 // --- AUTH MIDDLEWARE ---
@@ -433,11 +450,13 @@ app.post('/api/print-jobs/:id/done', requirePrinter, (req, res) => {
 app.get('/api/analytics/top-customers', requireStaff, (req, res) => {
   const sql = `
     SELECT 
-      o.customer_name, 
+      MAX(o.customer_name) as customer_name, 
       o.phone, 
       SUM(o.total - COALESCE(o.cashback_used, 0)) as total_spent, 
       COUNT(o.id) as order_count,
-      u.id as user_id
+      MAX(u.id) as user_id,
+      MAX(u.telegram_id) as telegram_id,
+      MAX(u.push_token) as push_token
     FROM orders o
     LEFT JOIN users u ON o.user_id = u.id OR o.phone = u.phone
     WHERE o.status = 'completed' 
@@ -476,9 +495,9 @@ app.post('/api/orders/gift', requireStaff, (req, res) => {
   }
 
   const itemsJson = JSON.stringify(items);
-  const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, 0, 'delivering', "Sovg'a yuborildi", ?, 0, 0)`;
+  const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, 0, 'delivering', ?, ?, 0, 0)`;
 
-  db.run(sql, [customer_name || 'Mijoz', phone, itemsJson, user_id || null], function(err) {
+  db.run(sql, [customer_name || 'Mijoz', phone, itemsJson, "Sovg'a yuborildi", user_id || null], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     const orderId = this.lastID;
 
@@ -486,16 +505,42 @@ app.post('/api/orders/gift', requireStaff, (req, res) => {
       sendPushNotification(
         push_token,
         "🎁 Sizga sovg'a keldi!",
-        message_text || "Milano Kafe tomonidan sizga bepul ovqat jo'natildi."
+        message_text || "Milano Foods tomonidan sizga bepul ovqat jo'natildi."
       );
     }
 
     if (telegram_id) {
-      const msg = `🎁 *Sizga sovg'a keldi!*\n\n${message_text || "Milano Kafe tomonidan sizga bepul ovqat jo'natildi."}\n\n*Buyurtma:*\n${items.map(i => `- ${i.name} x${i.quantity}`).join('\n')}`;
+      const msg = `🎁 *Sizga sovg'a keldi!*\n\n${message_text || "Milano Foods tomonidan sizga bepul ovqat jo'natildi."}\n\n*Buyurtma:*\n${items.map(i => `- ${i.name} x${i.quantity}`).join('\n')}`;
       bot.sendMessage(telegram_id, msg, { parse_mode: 'Markdown' }).catch(e => console.error("Tg bot error:", e));
     }
 
+    if (user_id) {
+      db.run("INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)", [
+        user_id,
+        "🎁 Sizga sovg'a keldi!",
+        message_text || "Milano Foods tomonidan sizga bepul ovqat jo'natildi."
+      ]);
+    }
+
     res.status(201).json({ success: true, orderId });
+  });
+});
+
+// ============================================================
+// --- NOTIFICATIONS API ---
+// ============================================================
+
+app.get('/api/notifications', requireAnyAuth, (req, res) => {
+  db.all("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC", [req.user.id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.put('/api/notifications/:id/read', requireAnyAuth, (req, res) => {
+  db.run("UPDATE notifications SET is_read = true WHERE id = ? AND user_id = ?", [req.params.id, req.user.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
   });
 });
 
@@ -798,8 +843,11 @@ app.post('/api/auth/client/login', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!user) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
 
-    if (!user.password && (user.google_id || user.telegram_id)) {
-      return res.status(401).json({ error: "Siz avval Google yoki Telegram orqali kirgansiz. O'sha orqali kiring." });
+    if (!user.password) {
+      if (user.google_id || user.telegram_id) {
+        return res.status(401).json({ error: "Siz avval Google yoki Telegram orqali kirgansiz. O'sha orqali kiring." });
+      }
+      return res.status(401).json({ error: "Parol o'rnatilmagan. Iltimos parolni tiklang yoki qaytadan ro'yxatdan o'ting." });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
@@ -921,16 +969,37 @@ app.post('/api/auth/client/telegram/verify', (req, res) => {
   const { telegram_id, first_name, last_name, username, phone } = authData;
   const name = `${first_name || ''} ${last_name || ''}`.trim() || username || 'Telegram Foydalanuvchisi';
 
-  db.get("SELECT * FROM users WHERE telegram_id = ?", [telegram_id], (err, user) => {
+  let query = "SELECT * FROM users WHERE telegram_id = ?";
+  let params = [telegram_id];
+  
+  if (phone) {
+    query = "SELECT * FROM users WHERE telegram_id = ? OR phone = ?";
+    params = [telegram_id, phone];
+  }
+
+  db.get(query, params, (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
 
     delete global.telegramVerificationCodes[code];
 
     if (user) {
-      if (phone && !user.phone) {
-        db.run("UPDATE users SET phone = ? WHERE id = ?", [phone, user.id]);
+      let updates = [];
+      let updateParams = [];
+      if (!user.telegram_id && telegram_id) {
+        updates.push("telegram_id = ?");
+        updateParams.push(telegram_id);
+        user.telegram_id = telegram_id;
+      }
+      if (!user.phone && phone) {
+        updates.push("phone = ?");
+        updateParams.push(phone);
         user.phone = phone;
       }
+      if (updates.length > 0) {
+        updateParams.push(user.id);
+        db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, updateParams);
+      }
+
       const { password: _, ...userData } = user;
       const jwtToken = jwt.sign({ id: user.id, role: user.role || 'client' }, JWT_SECRET, { expiresIn: '30d' });
 

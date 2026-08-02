@@ -1,27 +1,27 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
-    "scheme": "com.ruslan_xusenov11.mobile",
+    "name": "Milano Foods",
+    "slug": "milanofoods",
+    "scheme": "com.ruslandev.milanofoods",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/milano_icon_512.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ruslan-xusenov11.mobile"
+      "bundleIdentifier": "com.ruslandev.milanofoods"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/milano_icon_512.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.ruslan_xusenov11.mobile"
+      "package": "milano.ruslandev.uz"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/milano_icon_512.png"
     },
     "plugins": [
       "expo-web-browser"

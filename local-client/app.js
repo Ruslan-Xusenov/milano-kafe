@@ -37,7 +37,7 @@ const checkAndPrintJobs = async () => {
         printer.alignCenter();
         printer.bold(true);
         printer.setTextSize(1, 1);
-        printer.println("MILANO KAFE");
+        printer.println("MILANO FOODS");
         printer.setTextSize(0, 0);
         printer.bold(false);
         printer.drawLine();

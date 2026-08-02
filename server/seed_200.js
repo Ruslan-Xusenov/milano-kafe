@@ -1,7 +1,4 @@
-const sqlite3 = require('sqlite3');
-const path = require('path');
-
-const db = new sqlite3.Database(path.join(process.cwd(), 'cafebot.db'));
+const db = require('./db');
 
 const categories = {
   "Sevimli": [
@@ -53,7 +50,7 @@ const imgUrls = {
 const insertItem = (name, category, price, emoji) => {
   return new Promise((resolve, reject) => {
     db.run(
-      `INSERT INTO menu_items (name, description, price, category, emoji, available) VALUES (?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO menu_items (name, description, price, category, emoji, available) VALUES (?, ?, ?, ?, ?, true)`,
       [name, `Premium sifatli ${name.toLowerCase()}`, price, category, emoji],
       (err) => {
         if (err) reject(err);
@@ -73,7 +70,7 @@ const seed = async () => {
     console.log(`${category} toifasiga 20 ta mahsulot qo'shildi.`);
   }
   console.log('Barcha mahsulotlar muvaffaqiyatli qo\'shildi!');
-  db.close();
+  process.exit(0);
 };
 
 seed();

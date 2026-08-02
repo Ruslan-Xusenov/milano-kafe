@@ -22,6 +22,7 @@ import CatalogScreen from './src/screens/CatalogScreen';
 import CartScreen from './src/screens/CartScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MoreScreen from './src/screens/MoreScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import { CartProvider } from './src/context/CartContext';
 
 const Tab = createBottomTabNavigator();
@@ -85,6 +86,7 @@ function TabNavigator() {
       <Tab.Screen name="Savat" component={CartScreen} options={{ tabBarLabel: t('cart') || 'Savat' }} />
       <Tab.Screen name="Profil" component={ProfileScreen} options={{ tabBarLabel: t('profile') || 'Profil' }} />
       <Tab.Screen name="Yana" component={MoreScreen} options={{ tabBarLabel: t('more') || 'Yana' }} />
+      <Tab.Screen name="Notifications" component={NotificationsScreen} options={{ tabBarButton: () => null, tabBarItemStyle: { display: 'none' } }} />
     </Tab.Navigator>
   );
 }

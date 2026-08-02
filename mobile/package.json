@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "milano-foods",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
@@ -32,7 +32,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:apk": "cd android && ./gradlew assembleRelease && cp app/build/outputs/apk/release/app-release.apk ../app-release.apk"
   },
   "private": true
 }

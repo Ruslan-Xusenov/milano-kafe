@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log('🚀 Milano Kafe loyihasi ishga tushirilmoqda...\n');
+console.log('🚀 Milano Foods loyihasi ishga tushirilmoqda...\n');
 
 // 1. Backend-ni ishga tushirish (Node.js)
 console.log('📦 Backend server ishga tushirilmoqda...');

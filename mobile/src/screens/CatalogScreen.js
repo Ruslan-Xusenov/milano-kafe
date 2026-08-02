@@ -95,7 +95,11 @@ export default function CatalogScreen({ route }) {
               onPress={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
               activeOpacity={0.8}
             >
-              <Text style={styles.categoryChipEmoji}>{cat.emoji}</Text>
+              {cat.emoji?.startsWith('http') ? (
+                <Image source={{ uri: cat.emoji }} style={styles.categoryChipImage} />
+              ) : (
+                <Text style={styles.categoryChipEmoji}>{cat.emoji}</Text>
+              )}
               <Text style={[styles.categoryChipText, activeCategory === cat.name && styles.activeCategoryChipText]}>
                 {i18n.language === 'ru' ? cat.name_ru || cat.name : cat.name}
               </Text>
@@ -257,6 +261,7 @@ const styles = StyleSheet.create({
     shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4
   },
   categoryChipEmoji: { fontSize: 15, marginRight: 6 },
+  categoryChipImage: { width: 15, height: 15, marginRight: 6 },
   categoryChipText: { fontSize: 13, fontWeight: '700', color: TEXT_SECONDARY },
   activeCategoryChipText: { color: '#FFFFFF' },
 

@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext, apiFetch } from '../context/AuthContext';
 import OrderCard from './OrderCard';
 
 const KanbanBoard = () => {
-  const { user } = useContext(AuthContext);
+  const { user, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [orders, setOrders] = useState({
     new: [],
     preparing: [],
@@ -12,13 +14,20 @@ const KanbanBoard = () => {
     rejected: []
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const prevOrderIdsRef = useRef(new Set());
 
   const fetchOrders = async () => {
     try {
       const response = await apiFetch('/api/orders');
-      if (!response.ok) throw new Error('Failed to fetch');
+      if (response.status === 401 || response.status === 403) {
+        setFetchError('Sessiya muddati tugadi. Iltimos qayta kiring.');
+        setIsLoading(false);
+        return;
+      }
+      if (!response.ok) throw new Error(`Server xatosi: ${response.status}`);
       const data = await response.json();
+      setFetchError('');
       
       // Yangi buyurtmalar kelganini tekshirish va ovoz chiqarish
       const currentOrderIds = new Set(data.map(o => o.id));
@@ -48,6 +57,7 @@ const KanbanBoard = () => {
       setOrders(categorized);
     } catch (err) {
       console.error(err);
+      setFetchError(err.message || 'Buyurtmalarni yuklashda xatolik');
     } finally {
       setIsLoading(false);
     }
@@ -62,20 +72,54 @@ const KanbanBoard = () => {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await apiFetch(`/api/orders/${id}/status`, {
+      const response = await apiFetch(`/api/orders/${id}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
+      if (response.status === 401 || response.status === 403) {
+        alert('Sessiya muddati tugadi. Sahifa yangilanadi...');
+        navigate('/login');
+        return;
+      }
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        alert(`Xatolik: ${errData.error || 'Status yangilashda muammo yuz berdi'}`);
+        return;
+      }
       // Update local state immediately
       fetchOrders();
     } catch (error) {
       console.error("Status update error", error);
+      alert('Server bilan aloqa yo\'q. Internet ulanishingizni tekshiring.');
     }
   };
 
   if (isLoading) {
-    return <div className="flex justify-center items-center h-64"><p>Yuklanmoqda...</p></div>;
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-gray-500 font-medium">Buyurtmalar yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex flex-col justify-center items-center h-64 gap-4">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center max-w-sm">
+          <p className="text-red-600 font-bold mb-3">⚠️ {fetchError}</p>
+          <button
+            onClick={() => navigate('/login')}
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+          >
+            Qayta kirish
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -105,7 +149,7 @@ const KanbanBoard = () => {
         </h2>
         <div className="space-y-4 overflow-y-auto pr-2 flex-1 scrollbar-thin scrollbar-thumb-gray-300">
           {orders.preparing.map(order => (
-            <OrderCard key={order.id} order={order} onStatusChange={handleStatusChange} nextStatus="delivering" nextText="Yo'lga chiqarish" />
+            <OrderCard key={order.id} order={order} userRole={user?.role} onStatusChange={handleStatusChange} nextStatus="delivering" nextText="Yo'lga chiqarish" />
           ))}
         </div>
       </div>

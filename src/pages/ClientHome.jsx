@@ -274,8 +274,8 @@ const ClientHome = () => {
         <header className="h-[60px] sm:h-[80px] flex-shrink-0 flex items-center justify-between px-4 lg:px-10 bg-white border-b border-[#A79277]/20 z-40 sticky top-0 shadow-sm">
           <div className="flex items-center gap-2 sm:gap-6 flex-1">
             <div className="flex items-center gap-2 sm:gap-3 cursor-pointer">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#FF4747] rounded-xl flex items-center justify-center font-bold text-lg sm:text-xl text-white shadow-md">M</div>
-              <span className="text-xl sm:text-2xl font-extrabold tracking-tight hidden sm:block text-[#A79277]">Milano Kafe</span>
+              <img src="/milano_icon_512.png" alt="Milano Foods" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover shadow-md" />
+              <span className="text-xl sm:text-2xl font-extrabold tracking-tight hidden sm:block text-[#A79277]">Milano Foods</span>
             </div>
             <div className="hidden md:flex flex-1 max-w-xl relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A79277]/70" size={18} />

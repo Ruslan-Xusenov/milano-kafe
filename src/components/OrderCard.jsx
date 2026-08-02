@@ -120,7 +120,7 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
                 
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-xs text-gray-500 font-medium">To'lov turi</span>
-                  {userRole === 'Admin' || userRole === 'Kassir' ? (
+                  {['admin', 'superadmin', 'cashier'].includes(userRole?.toLowerCase()) ? (
                     <select 
                       value={order.payment_method || 'naqd'}
                       onChange={async (e) => {
@@ -152,7 +152,7 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
             <div className="p-4 bg-white border-t border-gray-100 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
               {!isCompleted ? (
                 <div className="flex gap-3">
-                  {isNew && userRole === 'Oshpaz' ? (
+                  {isNew && userRole?.toLowerCase() === 'cook' ? (
                     <div className="w-full text-center text-sm font-bold text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-200 shadow-sm">
                       Kassir tasdig'i kutilmoqda...
                     </div>

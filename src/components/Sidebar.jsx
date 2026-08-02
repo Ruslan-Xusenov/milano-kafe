@@ -22,10 +22,10 @@ const Sidebar = ({ isSidebarOpen, setIsSidebarOpen }) => {
       <aside className={`w-64 bg-gray-900 text-white flex flex-col shadow-xl fixed md:relative z-50 h-full transition-transform duration-300 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-6 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
-              <Utensils className="w-5 h-5 text-gray-900" />
+            <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center overflow-hidden">
+              <img src="/milano_icon_512.png" alt="Milano Foods" className="w-full h-full object-cover" />
             </div>
-            <span className="text-xl font-bold tracking-wider">CafeBot</span>
+            <span className="text-xl font-bold tracking-wider">Milano Foods</span>
           </div>
           <button 
             className="md:hidden text-gray-400 hover:text-white"

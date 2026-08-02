@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import DashboardLayout from './components/DashboardLayout';
 import DashboardHome from './components/DashboardHome';
 import MenuManagement from './components/MenuManagement';
@@ -22,12 +22,6 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <Router>
-          {/* Simple navigation to switch between Client and Admin for demo purposes */}
-          <div className="bg-gray-800 text-white text-xs p-1 flex justify-center space-x-4 z-50 relative">
-            <Link to="/" className="hover:text-orange-400">Mijoz Oynasi</Link>
-            <Link to="/admin" className="hover:text-orange-400">Admin Panel</Link>
-          </div>
-          
           <Routes>
             <Route path="/" element={<ClientHome />} />
             <Route path="/checkout" element={<Checkout />} />

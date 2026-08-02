@@ -2,7 +2,7 @@ require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api');
 
 const token = process.env.BOT_TOKEN;
-const chatId = process.env.CHAT_ID;
+const chatIds = process.env.CHAT_ID ? process.env.CHAT_ID.split(',').map(id => id.trim()).filter(Boolean) : [];
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -23,7 +23,7 @@ bot.on('message', (msg) => {
     });
   } 
   else if (text === '/start') {
-    const message = `👋 Salom, *Milano Kafe* xizmatiga xush kelibsiz!\n\nMenyuni ko'rish va buyurtma berish uchun quyidagi tugmani bosing 👇`;
+    const message = `👋 Salom, *Milano Foods* xizmatiga xush kelibsiz!\n\nMenyuni ko'rish va buyurtma berish uchun quyidagi tugmani bosing 👇`;
     
     bot.sendMessage(msg.chat.id, message, {
       parse_mode: 'Markdown',
@@ -63,7 +63,7 @@ bot.on('message', (msg) => {
 });
 
 const sendOrderToTelegram = (order) => {
-  if (!chatId) {
+  if (!chatIds || chatIds.length === 0) {
     console.error('CHAT_ID is not defined in .env');
     return;
   }
@@ -87,12 +87,14 @@ const sendOrderToTelegram = (order) => {
                   `💰 Jami: ${order.total.toLocaleString()} so'm\n\n` +
                   `🌐 Admin paneldan tasdiqlang.`;
 
-  bot.sendMessage(chatId, message, { parse_mode: 'Markdown' })
-    .catch(err => console.error('Error sending message to Telegram:', err));
+  chatIds.forEach(id => {
+    bot.sendMessage(id, message, { parse_mode: 'Markdown' })
+      .catch(err => console.error(`Error sending message to Telegram (${id}):`, err));
+  });
 };
 
 const sendStatusUpdateToTelegram = (orderId, newStatus) => {
-  if (!chatId) return;
+  if (!chatIds || chatIds.length === 0) return;
 
   const statusMap = {
     'preparing': 'Oshxonada tayyorlanmoqda 👨‍🍳',
@@ -104,8 +106,10 @@ const sendStatusUpdateToTelegram = (orderId, newStatus) => {
   const statusText = statusMap[newStatus] || newStatus;
   const message = `🔄 **Buyurtma #${orderId} holati o'zgardi**\n\nHolat: ${statusText}`;
 
-  bot.sendMessage(chatId, message, { parse_mode: 'Markdown' })
-    .catch(err => console.error('Error sending update message:', err));
+  chatIds.forEach(id => {
+    bot.sendMessage(id, message, { parse_mode: 'Markdown' })
+      .catch(err => console.error(`Error sending update message (${id}):`, err));
+  });
 };
 
 const sendSecurityAlertToUser = (telegram_id, { device, os, location, time }) => {
