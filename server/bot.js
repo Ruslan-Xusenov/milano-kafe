@@ -113,7 +113,7 @@ const sendOrderToTelegram = (order) => {
 
   chatIds.forEach(id => {
     bot.sendMessage(id, message, { parse_mode: 'Markdown' })
-      .catch(err => console.error(`Error sending message to Telegram (${id}):`, err));
+      .catch(err => console.error(`[bot] Yuborishda xato (${id}):`, err.message));
   });
 };
 
@@ -132,7 +132,7 @@ const sendStatusUpdateToTelegram = (orderId, newStatus) => {
 
   chatIds.forEach(id => {
     bot.sendMessage(id, message, { parse_mode: 'Markdown' })
-      .catch(err => console.error(`Error sending update message (${id}):`, err));
+      .catch(err => console.error(`[bot] Status yangilash xatosi (${id}):`, err.message));
   });
 };
 
@@ -140,7 +140,7 @@ const sendSecurityAlertToUser = (telegram_id, { device, os, location, time }) =>
   const message = `🚨 **XAVFSIZLIK OGOHLANTIRISHI**\n\nHurmatli foydalanuvchi, sizning hisobingizga yangi kirish aniqlandi!\n\n📱 Qurilma: ${device} (${os})\n📍 Yetkazib berish manzili (Kirish joyi): ${location}\n🕒 Vaqt: ${time}\n\nAgar bu siz bo'lmasangiz, darhol admin bilan bog'laning.`;
   
   bot.sendMessage(telegram_id, message, { parse_mode: 'Markdown' })
-    .catch(err => console.error('Error sending security alert to user:', err));
+    .catch(err => console.error('[bot] Xavfsizlik xabarini yuborishda xato:', err.message));
 };
 
 module.exports = { bot, sendOrderToTelegram, sendStatusUpdateToTelegram, sendSecurityAlertToUser };
