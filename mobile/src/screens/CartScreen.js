@@ -116,7 +116,7 @@ export default function CartScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {cartItems.map(item => (
           <View key={item.id} style={styles.cartItem}>
             <View style={styles.itemImageWrap}>
@@ -199,34 +199,35 @@ export default function CartScreen({ navigation }) {
               <Text style={[styles.paymentBtnText, paymentMethod === 'click' && styles.paymentBtnTextActive]}>Click</Text>
             </TouchableOpacity>
           </View>
+
+          {maxCashback > 0 && (
+            <View style={styles.cashbackToggleRow}>
+              <View>
+                <Text style={styles.cashbackToggleLabel}>Keshbekdan foydalanish</Text>
+                <Text style={styles.cashbackToggleSub}>Max: {formatNumber(maxCashback)} tanga</Text>
+              </View>
+              <Switch 
+                value={useCashback} 
+                onValueChange={setUseCashback} 
+                trackColor={{ false: '#333333', true: 'rgba(255,71,71,0.4)' }}
+                thumbColor={useCashback ? ACCENT : '#666666'}
+              />
+            </View>
+          )}
+          {useCashback && maxCashback > 0 && (
+            <View style={styles.cashbackDiscountRow}>
+              <Text style={styles.cashbackDiscountLabel}>Keshbek chegirmasi:</Text>
+              <Text style={styles.cashbackDiscountValue}>-{formatNumber(maxCashback)} so'm</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
-        {maxCashback > 0 && (
-          <View style={styles.cashbackToggleRow}>
-            <View>
-              <Text style={styles.cashbackToggleLabel}>Keshbekdan foydalanish</Text>
-              <Text style={styles.cashbackToggleSub}>Max: {formatNumber(maxCashback)} tanga</Text>
-            </View>
-            <Switch 
-              value={useCashback} 
-              onValueChange={setUseCashback} 
-              trackColor={{ false: '#333333', true: 'rgba(255,71,71,0.4)' }}
-              thumbColor={useCashback ? ACCENT : '#666666'}
-            />
-          </View>
-        )}
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>{t('total_amount', 'Umumiy summa:')}</Text>
+          <Text style={styles.totalLabel}>{t('total_amount', 'Jami:')}</Text>
           <Text style={styles.totalValue}>{formatNumber(useCashback ? finalAmount : totalAmount)} so'm</Text>
         </View>
-        {useCashback && maxCashback > 0 && (
-          <View style={[styles.totalRow, { marginTop: -12 }]}>
-            <Text style={[styles.totalLabel, { fontSize: 13 }]}>Keshbek chegirmasi:</Text>
-            <Text style={[styles.totalLabel, { color: ACCENT, fontWeight: '700' }]}>-{formatNumber(maxCashback)} so'm</Text>
-          </View>
-        )}
         <TouchableOpacity 
           style={[styles.checkoutBtn, loading && styles.checkoutBtnDisabled]} 
           onPress={handleCheckout}
@@ -272,7 +273,8 @@ const styles = StyleSheet.create({
   },
   itemCountText: { fontSize: 12, fontWeight: '800', color: ACCENT },
 
-  scrollContent: { padding: 16, paddingBottom: 260 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 16 },
   cartItem: {
     flexDirection: 'row', backgroundColor: DARK_CARD, borderRadius: 18, padding: 12,
     marginBottom: 10, borderWidth: 1, borderColor: BORDER_COLOR
@@ -315,8 +317,8 @@ const styles = StyleSheet.create({
   paymentBtnTextActive: { color: ACCENT },
 
   footer: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: DARK_CARD, padding: 18, paddingBottom: 110,
+    backgroundColor: DARK_CARD, padding: 18, paddingBottom: 20,
+    marginBottom: 70,
     borderTopLeftRadius: 26, borderTopRightRadius: 26,
     shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.4, shadowRadius: 16, elevation: 15,
     borderTopWidth: 1, borderTopColor: BORDER_COLOR
@@ -337,4 +339,10 @@ const styles = StyleSheet.create({
   },
   checkoutBtnDisabled: { opacity: 0.7 },
   checkoutBtnText: { fontSize: 16, fontWeight: '900', color: '#FFFFFF' },
+  cashbackDiscountRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 4, paddingBottom: 2
+  },
+  cashbackDiscountLabel: { fontSize: 13, color: TEXT_SECONDARY, fontWeight: '600' },
+  cashbackDiscountValue: { fontSize: 14, color: ACCENT, fontWeight: '700' },
 });

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
@@ -38,7 +38,7 @@ async function registerForPushNotificationsAsync() {
     }
     try {
       token = (await Notifications.getExpoPushTokenAsync({
-        projectId: 'b0e0db14-23bd-47a3-baf0-64d7c0f135b9', // Need this to work in dev without app.json projectId? We'll let Expo figure it out if app.json has it. Actually, better pass empty or remove projectId arg if unknown.
+        projectId: 'b0e0db14-23bd-47a3-baf0-64d7c0f135b9',
       })).data;
     } catch (e) {
       token = (await Notifications.getExpoPushTokenAsync()).data;
@@ -59,11 +59,17 @@ export const CartProvider = ({ children }) => {
   const [address, setAddress] = useState('');
   const [isReady, setIsReady] = useState(false);
 
+  // Debounced AsyncStorage writes to avoid blocking JS thread
+  const userSaveTimer = useRef(null);
+  const addressSaveTimer = useRef(null);
+
   useEffect(() => {
     const loadStorage = async () => {
       try {
-        const storedUser = await AsyncStorage.getItem('kafe_user');
-        const storedAddress = await AsyncStorage.getItem('kafe_address');
+        const [storedUser, storedAddress] = await Promise.all([
+          AsyncStorage.getItem('kafe_user'),
+          AsyncStorage.getItem('kafe_address')
+        ]);
         if (storedUser) setUser(JSON.parse(storedUser));
         if (storedAddress) setAddress(storedAddress);
       } catch (err) {
@@ -86,19 +92,29 @@ export const CartProvider = ({ children }) => {
     }
   }, [user.isLoggedIn, user.id]);
 
+  // Debounced user save — waits 300ms before writing to AsyncStorage
   useEffect(() => {
     if (isReady) {
-      AsyncStorage.setItem('kafe_user', JSON.stringify(user));
+      if (userSaveTimer.current) clearTimeout(userSaveTimer.current);
+      userSaveTimer.current = setTimeout(() => {
+        AsyncStorage.setItem('kafe_user', JSON.stringify(user));
+      }, 300);
     }
+    return () => { if (userSaveTimer.current) clearTimeout(userSaveTimer.current); };
   }, [user, isReady]);
 
+  // Debounced address save
   useEffect(() => {
     if (isReady) {
-      AsyncStorage.setItem('kafe_address', address);
+      if (addressSaveTimer.current) clearTimeout(addressSaveTimer.current);
+      addressSaveTimer.current = setTimeout(() => {
+        AsyncStorage.setItem('kafe_address', address);
+      }, 300);
     }
+    return () => { if (addressSaveTimer.current) clearTimeout(addressSaveTimer.current); };
   }, [address, isReady]);
 
-  const addToCart = (item, quantity = 1) => {
+  const addToCart = useCallback((item, quantity = 1) => {
     setCartItems(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
@@ -106,13 +122,13 @@ export const CartProvider = ({ children }) => {
       }
       return [...prev, { ...item, quantity }];
     });
-  };
+  }, []);
 
-  const removeFromCart = (id) => {
+  const removeFromCart = useCallback((id) => {
     setCartItems(prev => prev.filter(i => i.id !== id));
-  };
+  }, []);
 
-  const updateQuantity = (id, delta) => {
+  const updateQuantity = useCallback((id, delta) => {
     setCartItems(prev => prev.map(item => {
       if (item.id === id) {
         const newQuantity = item.quantity + delta;
@@ -120,12 +136,12 @@ export const CartProvider = ({ children }) => {
       }
       return item;
     }).filter(item => item.quantity > 0));
-  };
+  }, []);
 
-  const getTotal = () => cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const clearCart = () => setCartItems([]);
+  const getTotal = useCallback(() => cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0), [cartItems]);
+  const clearCart = useCallback(() => setCartItems([]), []);
 
-  const login = (userData, token) => {
+  const login = useCallback((userData, token) => {
     setUser({ 
       isLoggedIn: true, 
       id: userData.id, 
@@ -136,25 +152,29 @@ export const CartProvider = ({ children }) => {
       cashback_balance: userData.cashback_balance || 0,
       token
     });
-  };
+  }, []);
 
-  const updateUser = (userData) => {
+  const updateUser = useCallback((userData) => {
     setUser(prev => ({
       ...prev,
       ...userData,
       cashback_balance: userData.cashback_balance !== undefined ? userData.cashback_balance : prev.cashback_balance
     }));
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser({ isLoggedIn: false, id: null, name: '', phone: '', email: '', token: null, role: null, cashback_balance: 0 });
-  };
+  }, []);
+
+  // Memoize the context value to prevent unnecessary re-renders of consumers
+  const contextValue = useMemo(() => ({
+    cartItems, addToCart, removeFromCart, updateQuantity, getTotal, clearCart,
+    user, login, updateUser, logout, address, setAddress
+  }), [cartItems, addToCart, removeFromCart, updateQuantity, getTotal, clearCart,
+      user, login, updateUser, logout, address]);
 
   return (
-    <CartContext.Provider value={{
-      cartItems, addToCart, removeFromCart, updateQuantity, getTotal, clearCart,
-      user, login, updateUser, logout, address, setAddress
-    }}>
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );

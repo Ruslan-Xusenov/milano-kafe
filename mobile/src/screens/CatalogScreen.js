@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Platform } from 'react-native';
-import { Plus, Minus, X } from 'lucide-react-native';
+import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Platform, TextInput, FlatList } from 'react-native';
+import { Plus, Minus, X, Search } from 'lucide-react-native';
 import { api } from '../api';
 import { CartContext } from '../context/CartContext';
 import { useTranslation } from 'react-i18next';
@@ -18,10 +18,69 @@ const formatNumber = (num) => {
   return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 };
 
+// Memoized Product Card - only re-renders when its own props change
+const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, lang }) => {
+  return (
+    <TouchableOpacity style={styles.productCard} onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.productImageContainer}>
+        {item.emoji?.startsWith('http') ? (
+          <Image source={{ uri: item.emoji }} style={styles.productImage} />
+        ) : (
+          <Text style={styles.productEmoji}>{item.emoji}</Text>
+        )}
+      </View>
+      <View style={styles.productInfo}>
+        <View style={styles.productNameRow}>
+          <Text style={styles.productName} numberOfLines={2}>
+            {lang === 'ru' ? item.name_ru || item.name : item.name}
+          </Text>
+          {item.weight ? (
+            <View style={styles.weightBadge}>
+              <Text style={styles.weightText}>{item.weight}</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.productFooter}>
+          <View>
+            <Text style={styles.productPrice}>{formatNumber(item.price)}</Text>
+            <Text style={styles.productPriceSuffix}>so'm</Text>
+          </View>
+          {qty === 0 ? (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={onAdd}
+              activeOpacity={0.7}
+            >
+              <Plus size={20} color={ACCENT} strokeWidth={3} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.qtyControlInline}>
+              <TouchableOpacity
+                onPress={onMinus}
+                style={styles.qtyBtnMinus}
+              >
+                <Minus size={14} color={TEXT_SECONDARY} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={styles.qtyTextInline}>{qty}</Text>
+              <TouchableOpacity
+                onPress={onPlus}
+                style={styles.qtyBtnPlus}
+              >
+                <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export default function CatalogScreen({ route }) {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(route.params?.category || null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const { t, i18n } = useTranslation();
@@ -52,10 +111,82 @@ export default function CatalogScreen({ route }) {
     }
   }, [route.params?.category]);
 
-  const getItemQuantity = (id) => {
-    const item = cartItems.find(i => i.id === id);
-    return item ? item.quantity : 0;
-  };
+  // Build a quick lookup map for cart quantities to avoid .find() on every render
+  const cartQuantityMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach(item => { map[item.id] = item.quantity; });
+    return map;
+  }, [cartItems]);
+
+  const getItemQuantity = useCallback((id) => {
+    return cartQuantityMap[id] || 0;
+  }, [cartQuantityMap]);
+
+  // Memoize filtered items to avoid recalculation on every render
+  const filteredItems = useMemo(() => {
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      return menuItems.filter(item => {
+        const nameUz = (item.name || '').toLowerCase();
+        const nameRu = (item.name_ru || '').toLowerCase();
+        return nameUz.includes(query) || nameRu.includes(query);
+      });
+    }
+    if (activeCategory) {
+      return menuItems.filter(item => item.category === activeCategory);
+    }
+    return menuItems;
+  }, [menuItems, searchQuery, activeCategory]);
+
+  // Stable callback references for FlatList items
+  const handleAddToCart = useCallback((item) => {
+    addToCart(item);
+  }, [addToCart]);
+
+  const handleUpdateQuantityMinus = useCallback((id) => {
+    updateQuantity(id, -1);
+  }, [updateQuantity]);
+
+  const handleUpdateQuantityPlus = useCallback((id) => {
+    updateQuantity(id, 1);
+  }, [updateQuantity]);
+
+  const handleSelectProduct = useCallback((item) => {
+    setSelectedProduct(item);
+  }, []);
+
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
+    if (text.trim()) {
+      setActiveCategory(null);
+    }
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedProduct(null);
+  }, []);
+
+  // Render item for FlatList
+  const renderProductItem = useCallback(({ item }) => {
+    const qty = cartQuantityMap[item.id] || 0;
+    return (
+      <ProductCard
+        item={item}
+        qty={qty}
+        onPress={() => handleSelectProduct(item)}
+        onAdd={() => handleAddToCart(item)}
+        onMinus={() => handleUpdateQuantityMinus(item.id)}
+        onPlus={() => handleUpdateQuantityPlus(item.id)}
+        lang={i18n.language}
+      />
+    );
+  }, [cartQuantityMap, i18n.language, handleSelectProduct, handleAddToCart, handleUpdateQuantityMinus, handleUpdateQuantityPlus]);
+
+  const keyExtractor = useCallback((item) => String(item.id), []);
 
   if (loading) {
     return (
@@ -65,16 +196,33 @@ export default function CatalogScreen({ route }) {
     );
   }
 
-  const filteredItems = activeCategory
-    ? menuItems.filter(item => item.category === activeCategory)
-    : menuItems;
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('catalog', 'Katalog')}</Text>
         <Text style={styles.headerSubtitle}>{filteredItems.length} {t('items_count', 'ta taom')}</Text>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputWrapper}>
+          <Search size={18} color={TEXT_SECONDARY} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t('search', 'Qidirish...')}
+            placeholderTextColor={'#666666'}
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={handleClearSearch} style={styles.searchClearBtn}>
+              <X size={16} color={TEXT_SECONDARY} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Categories Horizontal Scroll */}
@@ -108,76 +256,29 @@ export default function CatalogScreen({ route }) {
         </ScrollView>
       </View>
 
-      {/* Menu Grid */}
-      <ScrollView contentContainerStyle={styles.gridContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.grid}>
-          {filteredItems.map(item => {
-            const qty = getItemQuantity(item.id);
-            return (
-              <TouchableOpacity key={item.id} style={styles.productCard} onPress={() => setSelectedProduct(item)} activeOpacity={0.85}>
-                <View style={styles.productImageContainer}>
-                  {item.emoji?.startsWith('http') ? (
-                    <Image source={{ uri: item.emoji }} style={styles.productImage} />
-                  ) : (
-                    <Text style={styles.productEmoji}>{item.emoji}</Text>
-                  )}
-                </View>
-                <View style={styles.productInfo}>
-                  <View style={styles.productNameRow}>
-                    <Text style={styles.productName} numberOfLines={2}>
-                      {i18n.language === 'ru' ? item.name_ru || item.name : item.name}
-                    </Text>
-                    {item.weight ? (
-                      <View style={styles.weightBadge}>
-                        <Text style={styles.weightText}>{item.weight}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={styles.productFooter}>
-                    <View>
-                      <Text style={styles.productPrice}>{formatNumber(item.price)}</Text>
-                      <Text style={styles.productPriceSuffix}>so'm</Text>
-                    </View>
-                    {qty === 0 ? (
-                      <TouchableOpacity
-                        style={styles.addBtn}
-                        onPress={(e) => { e.stopPropagation?.(); addToCart(item); }}
-                        activeOpacity={0.7}
-                      >
-                        <Plus size={20} color={ACCENT} strokeWidth={3} />
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={styles.qtyControlInline}>
-                        <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation?.(); updateQuantity(item.id, -1); }}
-                          style={styles.qtyBtnMinus}
-                        >
-                          <Minus size={14} color={TEXT_SECONDARY} strokeWidth={2.5} />
-                        </TouchableOpacity>
-                        <Text style={styles.qtyTextInline}>{qty}</Text>
-                        <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation?.(); updateQuantity(item.id, 1); }}
-                          style={styles.qtyBtnPlus}
-                        >
-                          <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            )
-          })}
-        </View>
-      </ScrollView>
+      {/* Menu Grid — FlatList for virtualized rendering */}
+      <FlatList
+        data={filteredItems}
+        renderItem={renderProductItem}
+        keyExtractor={keyExtractor}
+        numColumns={2}
+        columnWrapperStyle={styles.gridRow}
+        contentContainerStyle={styles.gridContainer}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+        removeClippedSubviews={true}
+        getItemLayout={undefined}
+      />
 
       {/* Product Modal */}
       <Modal visible={!!selectedProduct} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setSelectedProduct(null)} activeOpacity={1} />
+          <TouchableOpacity style={styles.modalBackdrop} onPress={handleCloseModal} activeOpacity={1} />
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
-            <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedProduct(null)}>
+            <TouchableOpacity style={styles.closeButton} onPress={handleCloseModal}>
               <X size={18} color={TEXT_SECONDARY} />
             </TouchableOpacity>
 
@@ -250,6 +351,23 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 26, fontWeight: '900', color: TEXT_PRIMARY, letterSpacing: -0.5 },
   headerSubtitle: { fontSize: 13, color: TEXT_SECONDARY, fontWeight: '500', marginTop: 2 },
 
+  searchContainer: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  searchInputWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: DARK_CARD, borderRadius: 16,
+    paddingHorizontal: 14, height: 48,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)'
+  },
+  searchIcon: { marginRight: 10 },
+  searchInput: {
+    flex: 1, fontSize: 15, color: TEXT_PRIMARY, fontWeight: '500',
+    paddingVertical: 0
+  },
+  searchClearBtn: {
+    padding: 6, backgroundColor: DARK_SURFACE, borderRadius: 12,
+    marginLeft: 8
+  },
+
   categoriesWrapper: { borderBottomWidth: 1, borderBottomColor: BORDER_COLOR, backgroundColor: DARK_BG },
   categoriesContainer: { paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
   categoryChip: {
@@ -266,7 +384,7 @@ const styles = StyleSheet.create({
   activeCategoryChipText: { color: '#FFFFFF' },
 
   gridContainer: { padding: 12, paddingBottom: 100 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  gridRow: { justifyContent: 'space-between' },
 
   productCard: {
     width: '48.5%', backgroundColor: DARK_CARD, borderRadius: 20, marginBottom: 14,
