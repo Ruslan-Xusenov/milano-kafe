@@ -27,4 +27,5 @@ server/cafebot.db
 .env
 server/.env
 *.apk
-*.aab*.sqlite
+*.aab
+*.sqlite
