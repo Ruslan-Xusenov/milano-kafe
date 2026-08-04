@@ -125,7 +125,7 @@ const Checkout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF2E1] font-sans pb-44">
+    <div className="min-h-screen bg-[#FFF2E1] font-sans pb-6">
       <header className="bg-white sticky top-0 z-10 px-4 py-4 flex items-center border-b border-[#A79277]/20 shadow-sm">
         <button onClick={() => navigate('/')} className="mr-4 p-2 text-[#A79277] hover:bg-[#F7E998]/50 rounded-full transition-colors">
           <ArrowLeft size={24} />
@@ -309,20 +309,23 @@ const Checkout = () => {
               </div>
             )}
 
-            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-[#A79277]/20 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-20">
-              <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
-                <div className="flex-col hidden sm:flex">
-                  <span className="text-[#A79277]/70 text-xs font-medium">Buyurtma summasi</span>
-                  <span className="font-extrabold text-[#A79277] text-xl">{totalAmount.toLocaleString()} so'm</span>
-                </div>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting || (deliveryType === 'delivery' && orderAddress.trim().length < 3) || !isValidPhone}
-                  className="flex-1 bg-[#FF4747] hover:bg-[#FF4747]/90 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-[14px] px-6 rounded-[14px] transition-colors text-[15px] shadow-sm flex items-center justify-center gap-2"
-                >
-                  {isSubmitting ? 'Yuborilmoqda...' : 'Buyurtma berish →'}
-                </button>
+            {/* Buyurtma tugmasi — inline, scroll bilan birga */}
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#A79277]/20">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-[#A79277]/70 text-[15px] font-medium">Jami summa:</span>
+                <span className="font-extrabold text-[#FF4747] text-xl">{totalAmount.toLocaleString()} so'm</span>
               </div>
+              <button 
+                type="submit" 
+                disabled={isSubmitting || (deliveryType === 'delivery' && orderAddress.trim().length < 3) || !isValidPhone}
+                className="w-full bg-[#FF4747] hover:bg-[#FF4747]/90 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-[14px] transition-colors text-[15px] shadow-sm flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? 'Yuborilmoqda...' : 'Buyurtma berish →'}
+              </button>
+            </div>
+
+            {/* APK WebView uchun pastki bo'sh joy */}
+            <div className="h-6"></div>
             </div>
 
           </form>
