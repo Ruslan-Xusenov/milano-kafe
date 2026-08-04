@@ -1,6 +1,6 @@
 import { apiFetch } from '../context/AuthContext';
 import React, { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, Calendar, DollarSign, Download, CreditCard, Smartphone } from 'lucide-react';
+import { BarChart3, TrendingUp, Calendar, DollarSign, Download, CreditCard, Smartphone, Gift } from 'lucide-react';
 
 const Reports = () => {
   const [orders, setOrders] = useState([]);
@@ -20,13 +20,20 @@ const Reports = () => {
   if (loading) return <div>Yuklanmoqda...</div>;
 
   const completedOrders = orders.filter(o => o.status === 'completed');
-  const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total, 0);
+  
+  // Sovg'alarni va pullik buyurtmalarni ajratish
+  const paidOrders = completedOrders.filter(o => o.payment_method !== 'sovga');
+  const giftOrders = completedOrders.filter(o => o.payment_method === 'sovga');
+
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + o.total, 0);
   const totalOrders = completedOrders.length;
   
   const paymentBreakdown = {
-    naqd: completedOrders.filter(o => o.payment_method === 'naqd' || !o.payment_method).reduce((sum, o) => sum + o.total, 0),
-    karta: completedOrders.filter(o => o.payment_method === 'karta').reduce((sum, o) => sum + o.total, 0),
-    click: completedOrders.filter(o => o.payment_method === 'click/payme').reduce((sum, o) => sum + o.total, 0),
+    naqd: paidOrders.filter(o => o.payment_method === 'naqd' || !o.payment_method).reduce((sum, o) => sum + o.total, 0),
+    karta: paidOrders.filter(o => o.payment_method === 'karta').reduce((sum, o) => sum + o.total, 0),
+    click: paidOrders.filter(o => o.payment_method === 'click' || o.payment_method === 'click/payme').reduce((sum, o) => sum + o.total, 0),
+    sovgaSumma: giftOrders.reduce((sum, o) => sum + o.total, 0),
+    sovgaSoni: giftOrders.length,
   };
 
   // Calculate top items
@@ -83,7 +90,7 @@ const Reports = () => {
           <div>
             <p className="text-sm text-gray-500 font-medium mb-1">O'rtacha chek</p>
             <h3 className="text-2xl font-bold text-gray-800">
-              {totalOrders > 0 ? Math.round(totalRevenue / totalOrders).toLocaleString() : 0} UZS
+              {paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length).toLocaleString() : 0} UZS
             </h3>
           </div>
           <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
@@ -93,34 +100,47 @@ const Reports = () => {
       </div>
 
       <h2 className="text-lg font-bold text-gray-800 mt-6 mb-2">To'lov turlari bo'yicha tushum</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
             <p className="text-sm text-gray-500 font-medium mb-1">Naqd pul</p>
-            <h3 className="text-2xl font-bold text-gray-800">{paymentBreakdown.naqd.toLocaleString()} UZS</h3>
+            <h3 className="text-xl font-bold text-gray-800">{paymentBreakdown.naqd.toLocaleString()} UZS</h3>
           </div>
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-            <DollarSign className="w-6 h-6" />
+          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+            <DollarSign className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
             <p className="text-sm text-gray-500 font-medium mb-1">Terminal (Karta)</p>
-            <h3 className="text-2xl font-bold text-gray-800">{paymentBreakdown.karta.toLocaleString()} UZS</h3>
+            <h3 className="text-xl font-bold text-gray-800">{paymentBreakdown.karta.toLocaleString()} UZS</h3>
           </div>
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-            <CreditCard className="w-6 h-6" />
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+            <CreditCard className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
           <div>
             <p className="text-sm text-gray-500 font-medium mb-1">Click / Payme</p>
-            <h3 className="text-2xl font-bold text-gray-800">{paymentBreakdown.click.toLocaleString()} UZS</h3>
+            <h3 className="text-xl font-bold text-gray-800">{paymentBreakdown.click.toLocaleString()} UZS</h3>
           </div>
-          <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
-            <Smartphone className="w-6 h-6" />
+          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600">
+            <Smartphone className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* Sovg'alar uchun yangi card */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-amber-200 flex items-start justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-2 h-full bg-amber-400"></div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium mb-1">Sovg'a qilingan (Tushum emas)</p>
+            <h3 className="text-xl font-bold text-amber-600">{paymentBreakdown.sovgaSumma.toLocaleString()} UZS</h3>
+            <p className="text-xs text-amber-500 mt-1 font-medium">{paymentBreakdown.sovgaSoni} ta buyurtma</p>
+          </div>
+          <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+            <Gift className="w-5 h-5" />
           </div>
         </div>
       </div>
