@@ -115,12 +115,20 @@ const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nex
               <div className="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100">
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-gray-500 font-medium">Jami hisob</span>
-                  <span className="font-black text-xl text-[#FF4747]">{order.total.toLocaleString()} <span className="text-sm">UZS</span></span>
+                  {order.payment_method === 'sovga' || order.status === "Sovg'a yuborildi" ? (
+                    <span className="font-black text-xl text-green-500">BEPUL</span>
+                  ) : (
+                    <span className="font-black text-xl text-[#FF4747]">{order.total.toLocaleString()} <span className="text-sm">UZS</span></span>
+                  )}
                 </div>
                 
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-xs text-gray-500 font-medium">To'lov turi</span>
-                  {['admin', 'superadmin', 'cashier'].includes(userRole?.toLowerCase()) ? (
+                  {order.payment_method === 'sovga' || order.status === "Sovg'a yuborildi" ? (
+                    <span className="text-sm font-bold px-3 py-1 bg-green-50 border border-green-200 text-green-600 rounded-lg shadow-sm flex items-center gap-1">
+                      <Gift size={14} /> SOVG'A
+                    </span>
+                  ) : ['admin', 'superadmin', 'cashier'].includes(userRole?.toLowerCase()) ? (
                     <select 
                       value={order.payment_method || 'naqd'}
                       onChange={async (e) => {

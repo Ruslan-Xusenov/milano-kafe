@@ -244,7 +244,7 @@ export default function ProfileScreen() {
   };
   
   const handleTelegramContinue = () => {
-    const botUrl = `https://t.me/zara_marketbot?start=login`;
+    const botUrl = `https://t.me/BoomBurgerZar_bot?start=login`;
     if (Platform.OS === 'web') {
       window.open(botUrl, '_blank');
     } else {

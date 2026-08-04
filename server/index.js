@@ -74,6 +74,30 @@ app.get('/api/test-ip', (req, res) => {
   });
 });
 
+// Public config — bot username va boshqa ommaviy ma'lumotlar
+app.get('/api/config', async (req, res) => {
+  if (!global.botUsername && process.env.BOT_TOKEN) {
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/getMe`);
+      const data = await r.json();
+      if (data.ok) global.botUsername = data.result.username;
+    } catch (_) {}
+  }
+  res.json({ bot_username: global.botUsername || null });
+});
+
+// Telegram login uchun bir martalik token yaratish
+global.telegramLoginTokens = {};
+app.post('/api/auth/telegram/init-login', (req, res) => {
+  const token = crypto.randomBytes(10).toString('hex');
+  global.telegramLoginTokens[token] = { expires: Date.now() + 10 * 60 * 1000 }; // 10 daqiqa
+  // Eskirgan tokenlarni tozalash
+  const now = Date.now();
+  Object.keys(global.telegramLoginTokens).forEach(k => {
+    if (global.telegramLoginTokens[k].expires < now) delete global.telegramLoginTokens[k];
+  });
+  res.json({ token });
+});
 
 // ============================================================
 // --- AUTH MIDDLEWARE ---
@@ -459,10 +483,29 @@ app.get('/api/analytics/top-customers', requireStaff, (req, res) => {
       MAX(u.push_token) as push_token
     FROM orders o
     LEFT JOIN users u ON o.user_id = u.id OR o.phone = u.phone
-    WHERE o.status = 'completed' 
+    WHERE o.status = 'completed' AND (o.payment_method != 'sovga' OR o.payment_method IS NULL)
     GROUP BY o.phone 
     ORDER BY total_spent DESC 
     LIMIT 5
+  `;
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// Sovg'alar hisoboti — kimga qancha sovg'a yuborilgan
+app.get('/api/analytics/gifts', requireStaff, (req, res) => {
+  const sql = `
+    SELECT 
+      MAX(o.customer_name) as customer_name, 
+      o.phone, 
+      COUNT(o.id) as gift_count,
+      MAX(o.created_at) as last_gift_date
+    FROM orders o
+    WHERE o.payment_method = 'sovga' OR o.status = 'Sovg''a yuborildi'
+    GROUP BY o.phone 
+    ORDER BY gift_count DESC
   `;
   db.all(sql, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -495,7 +538,7 @@ app.post('/api/orders/gift', requireStaff, (req, res) => {
   }
 
   const itemsJson = JSON.stringify(items);
-  const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned) VALUES (?, ?, ?, 0, 'delivering', ?, ?, 0, 0)`;
+  const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method) VALUES (?, ?, ?, 0, 'delivering', ?, ?, 0, 0, 'sovga')`;
 
   db.run(sql, [customer_name || 'Mijoz', phone, itemsJson, "Sovg'a yuborildi", user_id || null], function(err) {
     if (err) return res.status(500).json({ error: err.message });
@@ -579,6 +622,39 @@ app.delete('/api/menu/:id', requireAdmin, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
+});
+
+// Toggle menu item availability (vaqtincha o'chirish/qayta qo'shish)
+app.patch('/api/menu/:id/toggle-available', requireAdmin, (req, res) => {
+  db.get("SELECT available FROM menu_items WHERE id=?", [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Topilmadi' });
+    const newAvailable = !row.available;
+    db.run("UPDATE menu_items SET available=? WHERE id=?", [newAvailable, req.params.id], function(err2) {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json({ success: true, available: newAvailable });
+    });
+  });
+});
+
+// Set discount on menu item (aksiya elon qilish)
+app.patch('/api/menu/:id/discount', requireAdmin, (req, res) => {
+  const { discount_percent } = req.body;
+  const pct = parseInt(discount_percent, 10);
+  if (isNaN(pct) || pct < 0 || pct > 99) {
+    return res.status(400).json({ error: 'discount_percent 0-99 orasida bo\'lishi kerak' });
+  }
+  // Add column if not exists (idempotent)
+  db.run(
+    "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS discount_percent INTEGER DEFAULT 0",
+    [],
+    () => {
+      db.run("UPDATE menu_items SET discount_percent=? WHERE id=?", [pct, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, discount_percent: pct });
+      });
+    }
+  );
 });
 
 // ============================================================
@@ -1106,6 +1182,19 @@ app.delete('/api/categories/:id', requireAdmin, (req, res) => {
   });
 });
 
+// Toggle category availability
+app.patch('/api/categories/:id/toggle-available', requireAdmin, (req, res) => {
+  db.get("SELECT available FROM categories WHERE id=?", [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Topilmadi' });
+    const newAvailable = !row.available;
+    db.run("UPDATE categories SET available=? WHERE id=?", [newAvailable, req.params.id], function(err2) {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json({ success: true, available: newAvailable });
+    });
+  });
+});
+
 // ============================================================
 // --- BANNERS API ---
 // ============================================================
@@ -1170,11 +1259,28 @@ app.put('/api/settings', requireAdmin, (req, res) => {
 });
 
 // ============================================================
+// --- STARTUP MIGRATION (idempotent) ---
+// ============================================================
+async function runStartupMigrations() {
+  return new Promise((resolve) => {
+    db.run(
+      'ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS discount_percent INTEGER DEFAULT 0',
+      [],
+      (err) => {
+        if (err) console.warn('[migration] discount_percent:', err.message);
+        else console.log('[migration] discount_percent ustuni tayyor');
+        resolve();
+      }
+    );
+  });
+}
 
 const PORT = process.env.PORT || 5000;
 if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`🚀 Server http://localhost:${PORT} da ishga tushdi`);
+  runStartupMigrations().then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Server http://localhost:${PORT} da ishga tushdi`);
+    });
   });
 }
 

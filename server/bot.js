@@ -7,21 +7,45 @@ const chatIds = process.env.CHAT_ID ? process.env.CHAT_ID.split(',').map(id => i
 const bot = new TelegramBot(token, { polling: true });
 
 global.telegramVerificationCodes = {};
+global.botUsername = null;
+
+// Bot username ni olish
+bot.getMe().then(me => {
+  global.botUsername = me.username;
+  console.log(`[bot] @${me.username} tayyor`);
+}).catch(err => console.warn('[bot] getMe xatolik:', err.message));
 
 bot.on('message', (msg) => {
   const text = msg.text || '';
   
-  if (text.startsWith('/start login')) {
-    const message = `👋 Salom!\n\nTizimga kirish kodini olish uchun iltimos, pastdagi tugmani bosib telefon raqamingizni yuboring.`;
-    bot.sendMessage(msg.chat.id, message, {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        keyboard: [[{ text: '📱 Raqamni yuborish', request_contact: true }]],
-        resize_keyboard: true,
-        one_time_keyboard: true
+  // Faqat saytdan kelgan tokenli link orqali login — qo'lda "/start login" ishlamaydi
+  if (text.startsWith('/start web_')) {
+    const token = text.replace('/start web_', '').trim();
+    const stored = global.telegramLoginTokens?.[token];
+
+    if (!stored || Date.now() > stored.expires) {
+      // Token noto'g'ri yoki muddati o'tgan
+      if (stored) delete global.telegramLoginTokens[token];
+      return bot.sendMessage(msg.chat.id,
+        '❌ Havola yaroqsiz yoki muddati o\'tgan.\n\nIltimos, saytga qaytib qaytadan urinib ko\'ring.',
+        { parse_mode: 'Markdown' }
+      );
+    }
+
+    // Token to'g'ri — telefon so'rash
+    delete global.telegramLoginTokens[token];
+    bot.sendMessage(msg.chat.id,
+      `👋 Salom!\n\nTizimga kirish uchun telefon raqamingizni yuboring:`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          keyboard: [[{ text: '📱 Raqamni yuborish', request_contact: true }]],
+          resize_keyboard: true,
+          one_time_keyboard: true
+        }
       }
-    });
-  } 
+    );
+  }
   else if (text === '/start') {
     const message = `👋 Salom, *Milano Foods* xizmatiga xush kelibsiz!\n\nMenyuni ko'rish va buyurtma berish uchun quyidagi tugmani bosing 👇`;
     

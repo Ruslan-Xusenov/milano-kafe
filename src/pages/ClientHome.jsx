@@ -32,10 +32,18 @@ const ClientHome = () => {
   const [authData, setAuthData] = useState({ name: '', phone: '+998', email: '', password: '' });
   const [authError, setAuthError] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Telegram login
+  const [botUsername, setBotUsername] = useState(null);
+  const [telegramStep, setTelegramStep] = useState('idle'); // 'idle' | 'waiting_code'
+  const [telegramCode, setTelegramCode] = useState('');
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [telegramError, setTelegramError] = useState('');
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [banners, setBanners] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isMoreModalOpen, setIsMoreModalOpen] = useState(false);
   const [settings, setSettings] = useState({});
@@ -182,11 +190,12 @@ const ClientHome = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [menuRes, catRes, banRes, setRes] = await Promise.all([
+        const [menuRes, catRes, banRes, setRes, cfgRes] = await Promise.all([
           apiFetch('/api/menu'),
           apiFetch('/api/categories'),
           apiFetch('/api/banners'),
-          apiFetch('/api/settings')
+          apiFetch('/api/settings'),
+          apiFetch('/api/config')
         ]);
         if (menuRes.ok) {
           const data = await menuRes.json();
@@ -202,10 +211,44 @@ const ClientHome = () => {
         if (setRes.ok) {
           setSettings(await setRes.json());
         }
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json();
+          if (cfg.bot_username) setBotUsername(cfg.bot_username);
+        }
       } catch (e) { console.error(e); }
     };
     fetchData();
   }, []);
+
+  const handleTelegramVerify = async (e) => {
+    e.preventDefault();
+    if (!telegramCode.trim()) return;
+    setTelegramLoading(true);
+    setTelegramError('');
+    try {
+      const res = await apiFetch('/api/auth/client/telegram/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: telegramCode.trim(),
+          device: navigator.userAgent,
+          os: navigator.platform,
+          location: 'Web',
+          time: new Date().toLocaleString('uz-UZ')
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Xatolik yuz berdi');
+      login(data.user, data.token);
+      setIsLoginModalOpen(false);
+      setTelegramStep('idle');
+      setTelegramCode('');
+    } catch (err) {
+      setTelegramError(err.message);
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (banners.length === 0) return;
@@ -281,9 +324,22 @@ const ClientHome = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#A79277]/70" size={18} />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value) setActiveCategory(null);
+                }}
                 placeholder={t('search_placeholder', 'Sevimli taomingizni qidiring...')}
                 className="w-full bg-[#F7E998]/50 border-none rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:ring-2 focus:ring-[#FF4747] focus:bg-white transition-all outline-none text-[#A79277]"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#A79277]/50 hover:text-[#FF4747] transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 lg:gap-5 ml-2 sm:ml-4">
@@ -426,12 +482,23 @@ const ClientHome = () => {
             {/* Catalog items */}
             <div className="flex items-center justify-between mb-6 pt-4 px-4 lg:px-0">
               <h3 id="catalog-section" className="text-2xl font-bold text-[#A79277]">
-                {activeCategory ? activeCategory : t('all_dishes', 'Barcha taomlar')}
+                {searchQuery
+                  ? `"${searchQuery}" bo'yicha natijalar`
+                  : activeCategory ? activeCategory : t('all_dishes', 'Barcha taomlar')}
               </h3>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 px-4 lg:px-0">
-              {menuItems.filter(item => activeCategory ? item.category === activeCategory : true).map((item) => {
+              {menuItems.filter(item => {
+                const matchCat = activeCategory ? item.category === activeCategory : true;
+                const q = searchQuery.toLowerCase();
+                const matchSearch = !searchQuery ||
+                  item.name.toLowerCase().includes(q) ||
+                  (item.name_ru || '').toLowerCase().includes(q) ||
+                  (item.description || '').toLowerCase().includes(q) ||
+                  (item.category || '').toLowerCase().includes(q);
+                return matchCat && matchSearch;
+              }).map((item) => {
                 const qty = getItemQuantity(item.id);
 
                 return (
@@ -747,12 +814,93 @@ const ClientHome = () => {
               </button>
             </form>
 
-            <div className="mt-6 text-center">
+            {/* Telegram Login Divider */}
+            {telegramStep === 'idle' ? (
+              <>
+                <div className="flex items-center gap-3 my-5">
+                  <div className="flex-1 h-px bg-[#1f2937]/10" />
+                  <span className="text-xs font-bold text-[#1f2937]/40">YOKI</span>
+                  <div className="flex-1 h-px bg-[#1f2937]/10" />
+                </div>
+
+                {botUsername ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await apiFetch('/api/auth/telegram/init-login', { method: 'POST' });
+                        const { token } = await res.json();
+                        setTelegramStep('waiting_code');
+                        setTelegramError('');
+                        setTelegramCode('');
+                        window.open(`https://t.me/${botUsername}?start=web_${token}`, '_blank');
+                      } catch {
+                        setTelegramError('Serverga ulanib bo\'lmadi. Qaytadan urinib ko\'ring.');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-3 py-3.5 rounded-2xl bg-[#229ED9] hover:bg-[#1a8fc4] text-white font-bold transition-all shadow-lg shadow-[#229ED9]/20 active:scale-[0.98]"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
+                    </svg>
+                    Telegram orqali kirish
+                  </button>
+                ) : (
+                  <div className="text-center text-xs text-[#1f2937]/40 py-2">Telegram bot ulanmagan</div>
+                )}
+              </>
+            ) : (
+              /* Telegram OTP kodi kiritish */
+              <div className="mt-5">
+                <div className="bg-[#229ED9]/10 border border-[#229ED9]/30 rounded-2xl p-4 mb-4 text-sm text-[#229ED9] font-semibold">
+                  📱 <strong>@{botUsername}</strong> botga o'tib, raqamingizni yuboring. Bot sizga 6 raqamli kod yuboradi.
+                </div>
+
+                {telegramError && (
+                  <div className="mb-3 p-3 rounded-xl text-sm font-semibold bg-[#FF4747]/10 text-[#FF4747]">
+                    {telegramError}
+                  </div>
+                )}
+
+                <form onSubmit={handleTelegramVerify} className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-bold text-[#1f2937] mb-1">Telegram kod</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={telegramCode}
+                      onChange={e => setTelegramCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      className="w-full px-5 py-3 rounded-xl border-2 border-[#229ED9]/30 focus:border-[#229ED9] outline-none font-bold text-2xl text-center text-[#1f2937] bg-white tracking-[0.5em]"
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={telegramLoading || telegramCode.length < 6}
+                    className="w-full bg-[#229ED9] hover:bg-[#1a8fc4] disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all shadow-lg active:scale-[0.98] text-lg"
+                  >
+                    {telegramLoading ? 'Tekshirilmoqda...' : 'Tasdiqlash'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTelegramStep('idle'); setTelegramCode(''); setTelegramError(''); }}
+                    className="w-full py-2 text-sm font-semibold text-[#1f2937]/50 hover:text-[#FF4747] transition-colors"
+                  >
+                    ← Orqaga
+                  </button>
+                </form>
+              </div>
+            )}
+
+            <div className="mt-5 text-center">
               <button
                 type="button"
                 onClick={() => {
                   setAuthMode(authMode === 'login' ? 'register' : 'login');
                   setAuthError('');
+                  setTelegramStep('idle');
                 }}
                 className="text-[#1f2937] font-semibold hover:text-[#FF4747] transition-colors"
               >

@@ -4,6 +4,7 @@ import { Trophy, Star, TrendingUp, User, ShoppingBag, Gift, X, Check } from 'luc
 
 const TopCustomers = () => {
   const [customers, setCustomers] = useState([]);
+  const [gifts, setGifts] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -19,13 +20,20 @@ const TopCustomers = () => {
   useEffect(() => {
     const fetchTopCustomers = async () => {
       try {
-        const response = await apiFetch('/api/analytics/top-customers');
-        if (response.ok) {
-          const data = await response.json();
+        const [customersRes, giftsRes] = await Promise.all([
+          apiFetch('/api/analytics/top-customers'),
+          apiFetch('/api/analytics/gifts')
+        ]);
+        if (customersRes.ok) {
+          const data = await customersRes.json();
           setCustomers(data);
         }
+        if (giftsRes.ok) {
+          const data = await giftsRes.json();
+          setGifts(data);
+        }
       } catch (error) {
-        console.error('Error fetching top customers:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -197,6 +205,68 @@ const TopCustomers = () => {
           </table>
         </div>
       </div>
+
+      {/* SOVG'ALAR HISOBOTI */}
+      {gifts.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mt-6">
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-green-100 p-2 rounded-lg text-green-600">
+                <Gift size={20} className="fill-green-500" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">Sovg'alar Hisoboti</h2>
+            </div>
+            <div className="flex items-center text-sm text-gray-500 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+              Jami yuborilgan sovg'alar
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 text-gray-500 text-sm border-b border-gray-100">
+                  <th className="font-semibold py-3 px-6">O'rin</th>
+                  <th className="font-semibold py-3 px-6">Mijoz</th>
+                  <th className="font-semibold py-3 px-6 text-center">Sovg'alar soni</th>
+                  <th className="font-semibold py-3 px-6 text-right">Oxirgi sovg'a sanasi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {gifts.map((gift, index) => (
+                  <tr key={index} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="py-4 px-6 text-center w-20">
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm bg-gray-50 text-gray-400 border border-gray-100">
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-50 border border-green-100 flex items-center justify-center text-green-600 font-bold">
+                          {gift.customer_name ? gift.customer_name[0].toUpperCase() : 'M'}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-800">{gift.customer_name || 'Mijoz'}</p>
+                          <p className="text-xs text-gray-500 font-medium">{gift.phone}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-600 rounded-full font-bold text-sm">
+                        <Gift size={14} /> {gift.gift_count} marta
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <span className="font-semibold text-gray-800">
+                        {new Date(gift.last_gift_date).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Gift Modal */}
       {isModalOpen && selectedCustomer && (
