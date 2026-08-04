@@ -1,12 +1,12 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api');
+const tokenStore = require('./tokenStore');
 
 const token = process.env.BOT_TOKEN;
 const chatIds = process.env.CHAT_ID ? process.env.CHAT_ID.split(',').map(id => id.trim()).filter(Boolean) : [];
 
 const bot = new TelegramBot(token, { polling: true });
 
-global.telegramVerificationCodes = {};
 global.botUsername = null;
 
 // Bot username ni olish
@@ -20,22 +20,20 @@ bot.on('message', (msg) => {
   
   // Faqat saytdan kelgan tokenli link orqali login — qo'lda "/start login" ishlamaydi
   if (text.startsWith('/start web_')) {
-    const token = text.replace('/start web_', '').trim();
-    const stored = global.telegramLoginTokens?.[token];
+    const loginToken = text.replace('/start web_', '').trim();
 
-    if (!stored || Date.now() > stored.expires) {
-      // Token noto'g'ri yoki muddati o'tgan
-      if (stored) delete global.telegramLoginTokens[token];
-      return bot.sendMessage(msg.chat.id,
-        '❌ Havola yaroqsiz yoki muddati o\'tgan.\n\nIltimos, saytga qaytib qaytadan urinib ko\'ring.',
-        { parse_mode: 'Markdown' }
-      );
-    }
+    // DB-backed tokenStore (replaces global.telegramLoginTokens)
+    tokenStore.get(loginToken, true).then(stored => {
+      if (!stored) {
+        return bot.sendMessage(msg.chat.id,
+          '❌ Havola yaroqsiz yoki muddati o\'tgan.\n\nIltimos, saytga qaytib qaytadan urinib ko\'ring.',
+          { parse_mode: 'Markdown' }
+        );
+      }
 
-    // Token to'g'ri — telefon so'rash
-    delete global.telegramLoginTokens[token];
-    bot.sendMessage(msg.chat.id,
-      `👋 Salom!\n\nTizimga kirish uchun telefon raqamingizni yuboring:`,
+      // Token to'g'ri — telefon so'rash
+      bot.sendMessage(msg.chat.id,
+        `👋 Salom!\n\nTizimga kirish uchun telefon raqamingizni yuboring:`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -44,7 +42,9 @@ bot.on('message', (msg) => {
           one_time_keyboard: true
         }
       }
-    );
+      )
+        .catch(err => console.error('[bot] sendMessage error:', err.message));
+    }).catch(err => console.error('[bot] tokenStore.get error:', err.message));
   }
   else if (text === '/start') {
     const message = `👋 Salom, *Milano Foods* xizmatiga xush kelibsiz!\n\nMenyuni ko'rish va buyurtma berish uchun quyidagi tugmani bosing 👇`;
@@ -68,18 +68,18 @@ bot.on('message', (msg) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     let phoneNumber = msg.contact.phone_number;
     if (!phoneNumber.startsWith('+')) phoneNumber = '+' + phoneNumber;
-    
-    global.telegramVerificationCodes[code] = {
+
+    // DB-backed tokenStore (replaces global.telegramVerificationCodes)
+    tokenStore.set(code, 'telegram_verify', {
       telegram_id: msg.from.id,
       first_name: msg.from.first_name,
       last_name: msg.from.last_name,
       username: msg.from.username,
       phone: phoneNumber,
-      expires_at: Date.now() + 5 * 60 * 1000 // 5 minutes
-    };
-    
+    }, 5 * 60 * 1000).catch(err => console.error('[bot] tokenStore.set error:', err.message));
+
     const message = `✅ Raqam tasdiqlandi!\n\n🔑 Tizimga kirish kodingiz: *${code}*\n\nUshbu kodni ilovadagi tegishli maydonga kiriting.`;
-    bot.sendMessage(msg.chat.id, message, { 
+    bot.sendMessage(msg.chat.id, message, {
       parse_mode: 'Markdown',
       reply_markup: { remove_keyboard: true }
     });
