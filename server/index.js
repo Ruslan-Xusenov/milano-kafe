@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 
 // --- Startup checks ---
 if (!process.env.JWT_SECRET) {
@@ -54,26 +55,54 @@ app.use(express.json({ limit: '100kb' }));
 // --- Rate Limiting ---
 // ============================================================
 
-// General: 500 req / 15 min
+/**
+ * skipForStaff — Authenticated staff/admin requests BYPASS rate limiting.
+ *
+ * Rationale:
+ * - Rate limiting protects against anonymous abuse (bots, scrapers, brute force).
+ * - Admin/staff users are already identified and trusted via JWT.
+ * - They work all day in the admin panel doing legitimate polling/updates.
+ * - IP-based blocking incorrectly targets authenticated users who share IPs
+ *   (office NAT, mobile carrier, VPN).
+ * - JWT is verified cryptographically — no spoofing risk.
+ */
+const skipForStaff = (req) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) return false;
+    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+    // Staff roles: admin, waiter, cashier, kitchen, manager, printer
+    const staffRoles = ['admin', 'waiter', 'cashier', 'kitchen', 'manager', 'staff', 'printer'];
+    return staffRoles.includes(decoded?.role);
+  } catch {
+    // Invalid/expired token — don't skip, let rate limiter apply normally
+    return false;
+  }
+};
+
+// General: 500 req / 15 min (unauthenticated / client users only)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipForStaff, // ← Staff/admin don't hit this limit
   message: { error: 'So\'rovlar juda ko\'p. 15 daqiqadan so\'ng qayta urinib ko\'ring.' },
   validate: { xForwardedForHeader: false, trustProxy: false },
 });
 
-// Kanban polling: 2000 req / 15 min (staff GET /api/orders only)
+// Kanban polling: high limit for unauthenticated (already skipped for staff above)
 const kanbanLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 2000,
   standardHeaders: false,
   legacyHeaders: false,
+  skip: skipForStaff, // ← Staff/admin bypass — they poll all day legitimately
   validate: { xForwardedForHeader: false, trustProxy: false },
 });
 
-// Auth: strict — 20 req / 15 min
+// Auth: strict — 20 req / 15 min (brute force protection for login endpoints)
+// NOTE: Auth limiter does NOT skip for staff — login endpoints should always be limited.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
