@@ -7,6 +7,7 @@ const { OAuth2Client } = require('google-auth-library');
 const db = require('../db');
 const tokenStore = require('../tokenStore');
 const { sendSecurityAlertToUser } = require('../bot');
+const { requireAnyAuth } = require('../middleware/auth');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'dummy_client_id';
@@ -305,7 +306,7 @@ router.put('/client/update', (req, res) => {
 });
 
 // O'zining profil ma'lumotlarini olish — IDOR fix
-router.get('/client/me/:id', (req, res) => {
+router.get('/client/me/:id', requireAnyAuth, (req, res) => {
   if (req.user.id !== parseInt(req.params.id)) {
     return res.status(403).json({ error: 'Ruxsat yo\'q' });
   }
