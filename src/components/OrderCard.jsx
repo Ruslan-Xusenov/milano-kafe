@@ -1,6 +1,6 @@
 import { apiFetch } from '../context/AuthContext';
 import React, { useState } from 'react';
-import { Loader2, Phone, CheckCircle2, ChevronRight, XCircle, MapPin, Info } from 'lucide-react';
+import { Loader2, Phone, CheckCircle2, ChevronRight, XCircle, MapPin, Info, Gift } from 'lucide-react';
 
 const OrderCard = ({ order, isCompleted = false, onStatusChange, nextStatus, nextText, userRole }) => {
   const [isProcessing, setIsProcessing] = useState(false);
