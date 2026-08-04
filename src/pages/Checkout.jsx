@@ -125,7 +125,7 @@ const Checkout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF2E1] font-sans pb-32">
+    <div className="min-h-screen bg-[#FFF2E1] font-sans pb-44">
       <header className="bg-white sticky top-0 z-10 px-4 py-4 flex items-center border-b border-[#A79277]/20 shadow-sm">
         <button onClick={() => navigate('/')} className="mr-4 p-2 text-[#A79277] hover:bg-[#F7E998]/50 rounded-full transition-colors">
           <ArrowLeft size={24} />
@@ -252,28 +252,39 @@ const Checkout = () => {
               {/* To'lov usuli */}
               <div>
                 <label className="block text-sm font-medium text-[#A79277] mb-2">To'lov usuli</label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('naqd')}
-                    className={`flex-1 py-3 px-4 rounded-xl text-[14px] font-medium border transition-all flex items-center justify-center gap-2 ${
+                    className={`py-3 px-2 rounded-xl text-[13px] font-medium border transition-all flex items-center justify-center gap-1 ${
                       paymentMethod === 'naqd' 
                         ? 'bg-[#F7E998]/50 border-[#FF4747] text-[#FF4747]' 
                         : 'bg-white border-[#A79277]/20 text-[#A79277]/70 hover:border-[#A79277]/20'
                     }`}
                   >
-                    💵 Naqd pul {paymentMethod === 'naqd' && <Check size={16} />}
+                    💵 Naqd {paymentMethod === 'naqd' && <Check size={14} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('karta')}
+                    className={`py-3 px-2 rounded-xl text-[13px] font-medium border transition-all flex items-center justify-center gap-1 ${
+                      paymentMethod === 'karta' 
+                        ? 'bg-[#F7E998]/50 border-[#FF4747] text-[#FF4747]' 
+                        : 'bg-white border-[#A79277]/20 text-[#A79277]/70 hover:border-[#A79277]/20'
+                    }`}
+                  >
+                    💳 Karta {paymentMethod === 'karta' && <Check size={14} />}
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('click')}
-                    className={`flex-1 py-3 px-4 rounded-xl text-[14px] font-medium border transition-all flex items-center justify-center gap-2 ${
+                    className={`py-3 px-2 rounded-xl text-[13px] font-medium border transition-all flex items-center justify-center gap-1 ${
                       paymentMethod === 'click' 
                         ? 'bg-[#F7E998]/50 border-[#FF4747] text-[#FF4747]' 
                         : 'bg-white border-[#A79277]/20 text-[#A79277]/70 hover:border-[#A79277]/20'
                     }`}
                   >
-                    📱 Click {paymentMethod === 'click' && <Check size={16} />}
+                    📱 Click {paymentMethod === 'click' && <Check size={14} />}
                   </button>
                 </div>
               </div>
