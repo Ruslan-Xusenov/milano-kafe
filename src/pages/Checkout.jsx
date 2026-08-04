@@ -326,7 +326,6 @@ const Checkout = () => {
 
             {/* APK WebView uchun pastki bo'sh joy */}
             <div className="h-6"></div>
-            </div>
 
           </form>
         )}
