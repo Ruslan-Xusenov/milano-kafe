@@ -16,7 +16,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && user && !allowedRoles.map(r => r.toLowerCase()).includes(user.role.toLowerCase())) {
-    // If role is not authorized, redirect to admin home (which they should have access to)
+    // If role is not authorized, redirect to home if client, otherwise admin home
+    if (user.role.toLowerCase() === 'client') {
+      return <Navigate to="/" replace />;
+    }
     return <Navigate to="/admin" replace />;
   }
 
