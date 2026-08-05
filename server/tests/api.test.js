@@ -245,6 +245,14 @@ describe('🍔 Menu (Public GET)', () => {
       .send({ name: 'Sushi', price: 55000, category: 'Japanese' });
     expect(res.statusCode).toBe(403);
   });
+
+  it('DELETE /api/menu/:id → 200 with admin token', async () => {
+    const res = await request(app)
+      .delete('/api/menu/1')
+      .set('Authorization', `Bearer ${staffToken}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true });
+  });
 });
 
 describe('📦 Orders', () => {
@@ -330,6 +338,14 @@ describe('🌐 Public Endpoints', () => {
   it('GET /api/categories → 200', async () => {
     const res = await request(app).get('/api/categories');
     expect(res.statusCode).toBe(200);
+  });
+
+  it('DELETE /api/categories/:id → 200 with admin token', async () => {
+    const res = await request(app)
+      .delete('/api/categories/1')
+      .set('Authorization', `Bearer ${staffToken}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true });
   });
 
   it('GET /api/banners → 200', async () => {

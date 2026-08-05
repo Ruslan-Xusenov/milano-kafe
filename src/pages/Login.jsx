@@ -13,7 +13,6 @@ const Login = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // If already logged in, redirect to admin
   if (user) {
     return <Navigate to="/admin" replace />;
   }

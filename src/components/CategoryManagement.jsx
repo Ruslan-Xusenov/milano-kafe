@@ -11,7 +11,7 @@ const CategoryManagement = () => {
   const [loading, setLoading] = useState(true);
 
   const [showModal, setShowModal] = useState(false);
-  const [editingCat, setEditingCat] = useState(null); // null = add, object = edit
+  const [editingCat, setEditingCat] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -30,14 +30,12 @@ const CategoryManagement = () => {
 
   useEffect(() => { fetchCategories(); }, []);
 
-  // ---- Open Add ----
   const openAddModal = () => {
     setEditingCat(null);
     setFormData(EMPTY_FORM);
     setShowModal(true);
   };
 
-  // ---- Open Edit ----
   const openEditModal = (cat) => {
     setEditingCat(cat);
     setFormData({
@@ -51,7 +49,6 @@ const CategoryManagement = () => {
     setShowModal(true);
   };
 
-  // ---- Submit (Add / Edit) ----
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -75,7 +72,6 @@ const CategoryManagement = () => {
     finally { setSaving(false); }
   };
 
-  // ---- Delete ----
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     try {
@@ -85,7 +81,6 @@ const CategoryManagement = () => {
     } catch (e) { console.error(e); }
   };
 
-  // ---- Toggle Available ----
   const handleToggleAvailable = async (cat) => {
     setTogglingId(cat.id);
     try {

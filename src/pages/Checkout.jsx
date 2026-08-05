@@ -12,8 +12,8 @@ const Checkout = () => {
   
   const [name, setName] = useState('');
   const [phone, setPhone] = useState(user.phone || '+998');
-  const [deliveryType, setDeliveryType] = useState('delivery'); // 'delivery' | 'pickup'
-  const [paymentMethod, setPaymentMethod] = useState('naqd'); // 'naqd' | 'click'
+  const [deliveryType, setDeliveryType] = useState('delivery');
+  const [paymentMethod, setPaymentMethod] = useState('naqd');
   const [orderAddress, setOrderAddress] = useState(address || '');
   const [comment, setComment] = useState('');
 
@@ -30,8 +30,7 @@ const Checkout = () => {
 
   const totalAmount = getTotal();
 
-  // Simple phone validation
-  const isValidPhone = phone.replace(/[^0-9]/g, '').length >= 12; // e.g. 998901234567
+  const isValidPhone = phone.replace(/[^0-9]/g, '').length >= 12;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,7 +56,7 @@ const Checkout = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          customer_name: name || 'Mijoz', // Make name optional if we want it like Milano, but keep it for now
+          customer_name: name || 'Mijoz',
           phone: phone,
           items: cartItems.map(item => ({
             id: item.id,
@@ -80,7 +79,6 @@ const Checkout = () => {
       const resData = await response.json();
       setOrderId(resData.id || Math.floor(Math.random() * 1000000).toString(16).toUpperCase());
 
-      // Refresh user balance if logged in
       if (user?.isLoggedIn && user?.id) {
         apiFetch('/api/auth/client/me/' + user.id)
           .then(res => res.json())

@@ -42,7 +42,7 @@ router.put('/:id', (req, res) => {
 
 // Kategoriyani o'chirish — faqat admin
 router.delete('/:id', (req, res) => {
-  db.run('DELETE FROM categories WHERE id=?', req.params.id, function (err) {
+  db.run('DELETE FROM categories WHERE id=?', [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });

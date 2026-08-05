@@ -11,12 +11,23 @@ function convertQuery(sql) {
   return sql.replace(/\?/g, () => `$${index++}`);
 }
 
+function normalizeParams(params) {
+  if (params === undefined || params === null) {
+    return [];
+  }
+  if (!Array.isArray(params)) {
+    return [params];
+  }
+  return params;
+}
+
 const db = {
   run: (sql, params, callback) => {
     if (typeof params === 'function') {
       callback = params;
       params = [];
     }
+    params = normalizeParams(params);
     let pgSql = convertQuery(sql);
     let isInsert = false;
     
@@ -43,6 +54,7 @@ const db = {
       callback = params;
       params = [];
     }
+    params = normalizeParams(params);
     const pgSql = convertQuery(sql);
     pool.query(pgSql, params, (err, result) => {
       if (err) {
@@ -58,6 +70,7 @@ const db = {
       callback = params;
       params = [];
     }
+    params = normalizeParams(params);
     const pgSql = convertQuery(sql);
     pool.query(pgSql, params, (err, result) => {
       if (err) {
@@ -99,6 +112,7 @@ const db = {
       const txDb = {
         run: (sql, params, callback) => {
           if (typeof params === 'function') { callback = params; params = []; }
+          params = normalizeParams(params);
           let pgSql = convertQuery(sql);
           let isInsert = false;
           if (/^\s*INSERT\s+INTO/i.test(pgSql) && !/RETURNING/i.test(pgSql)) {
@@ -117,6 +131,7 @@ const db = {
         },
         get: (sql, params, callback) => {
           if (typeof params === 'function') { callback = params; params = []; }
+          params = normalizeParams(params);
           const pgSql = convertQuery(sql);
           return client.query(pgSql, params).then(result => {
             const row = result.rows[0] || null;
@@ -129,6 +144,7 @@ const db = {
         },
         all: (sql, params, callback) => {
           if (typeof params === 'function') { callback = params; params = []; }
+          params = normalizeParams(params);
           const pgSql = convertQuery(sql);
           return client.query(pgSql, params).then(result => {
             if (callback) callback(null, result.rows);
@@ -139,7 +155,7 @@ const db = {
           });
         },
         // Raw client query (for FOR UPDATE, etc.)
-        query: (sql, params) => client.query(convertQuery(sql), params || []),
+        query: (sql, params) => client.query(convertQuery(sql), normalizeParams(params)),
       };
 
       const result = await asyncCallback(txDb);

@@ -9,7 +9,7 @@ let config = {
   serverUrl: process.env.SERVER_URL || 'https://milano.securehub.uz',
   printerInterface: process.env.PRINTER_INTERFACE || 'tcp://192.168.123.100',
   printerSecret: process.env.PRINTER_SECRET || 'ede3d6fc2e5381127ddef2582d2373841aba683473be8b30de7405c52e3d365d',
-  qrUrl: "https://t.me/zara_marketbot",
+  qrUrl: "https://t.me/BoomBurgerZar_bot",
   pollIntervalMs: 3000
 };
 

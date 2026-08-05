@@ -45,7 +45,7 @@ router.put('/:id', (req, res) => {
 
 // Menu itemni o'chirish — faqat admin
 router.delete('/:id', (req, res) => {
-  db.run('DELETE FROM menu_items WHERE id=?', req.params.id, function (err) {
+  db.run('DELETE FROM menu_items WHERE id=?', [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
@@ -112,7 +112,7 @@ router.post('/:id/ingredients', (req, res) => {
 
 // Ingredient o'chirish — faqat admin
 router.delete('/ingredients/:id', (req, res) => {
-  db.run('DELETE FROM recipe_ingredients WHERE id=?', req.params.id, function (err) {
+  db.run('DELETE FROM recipe_ingredients WHERE id=?', [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });

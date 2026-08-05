@@ -8,7 +8,6 @@ const TopCustomers = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Gift Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [giftItem, setGiftItem] = useState('');
@@ -54,7 +53,7 @@ const TopCustomers = () => {
 
     fetchTopCustomers();
     fetchMenu();
-    const interval = setInterval(fetchTopCustomers, 10000); // Poll every 10s
+    const interval = setInterval(fetchTopCustomers, 10000);
     return () => clearInterval(interval);
   }, []);
 

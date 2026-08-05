@@ -9,7 +9,6 @@ import { CartContext } from '../context/CartContext';
 import ProductModal from '../components/ProductModal';
 import { useTranslation } from 'react-i18next';
 
-// Extracted components
 import CartDrawer from '../components/client/CartDrawer';
 import BannersSlider from '../components/client/BannersSlider';
 import MenuSection from '../components/client/MenuSection';
@@ -27,21 +26,18 @@ const ClientHome = () => {
     i18n.changeLanguage(i18n.language === 'uz' ? 'ru' : 'uz');
   };
 
-  // Auth state
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [authData, setAuthData] = useState({ name: '', phone: '+998', email: '', password: '' });
   const [authError, setAuthError] = useState('');
   const [isAuthLoading, setIsAuthLoading] = useState(false);
 
-  // Telegram login
   const [botUsername, setBotUsername] = useState(null);
   const [telegramStep, setTelegramStep] = useState('idle');
   const [telegramCode, setTelegramCode] = useState('');
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [telegramError, setTelegramError] = useState('');
 
-  // Data
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [banners, setBanners] = useState([]);
@@ -50,14 +46,12 @@ const ClientHome = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // Modals
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMoreModalOpen, setIsMoreModalOpen] = useState(false);
   const [isTextModalOpen, setIsTextModalOpen] = useState(false);
   const [textModalTitle, setTextModalTitle] = useState('');
   const [textModalContent, setTextModalContent] = useState('');
 
-  // Data fetching
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -78,14 +72,12 @@ const ClientHome = () => {
     fetchData();
   }, []);
 
-  // Banner auto-rotate
   useEffect(() => {
     if (!banners.length) return;
     const timer = setInterval(() => setCurrentBanner(prev => (prev + 1) % banners.length), 4000);
     return () => clearInterval(timer);
   }, [banners.length]);
 
-  // Geolocation
   const handleGetLocation = () => {
     if (!navigator.geolocation) { alert("Brauzeringiz geolokatsiyani qo'llab-quvvatlamaydi."); return; }
     setIsLocating(true);
@@ -109,7 +101,6 @@ const ClientHome = () => {
     );
   };
 
-  // Auth
   const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError('');

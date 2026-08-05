@@ -51,11 +51,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-/**
- * apiFetch — barcha API so'rovlari uchun markazlashtirilgan yordamchi.
- * localStorage'dan tokenni o'qib, Authorization headeriga qo'shadi.
- * fetch() bilan bir xil interfeysda ishlaydi.
- */
 export function apiFetch(url, options = {}) {
   const storedToken = localStorage.getItem('cafebot_token');
   const headers = {
