@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { sendOrderToTelegram, sendStatusUpdateToTelegram, bot } = require('../bot');
-const { printReceipt } = require('../printer');
 const { sendPushNotification } = require('../notifications');
 
 // ============================================================
@@ -285,7 +284,7 @@ router.put('/:id/status', async (req, res) => {
 
 // Printer uchun print jobs — requirePrinter bilan himoyalangan (index.js'da)
 router.get('/print-jobs', (req, res) => {
-  db.all("SELECT * FROM orders WHERE status = 'preparing' AND (printed = false OR printed IS NULL)", [], (err, rows) => {
+  db.all("SELECT * FROM orders WHERE status IN ('new', 'preparing') AND (printed = false OR printed IS NULL)", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     const parsedRows = rows.map(r => {
       try { r.items = typeof r.items === 'string' ? JSON.parse(r.items) : r.items; } catch (e) {}

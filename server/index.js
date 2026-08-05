@@ -68,10 +68,17 @@ app.use(express.json({ limit: '100kb' }));
  */
 const skipForStaff = (req) => {
   try {
+    // Allow printer client (polling every 3 seconds) to bypass rate limit
+    const printerToken = req.headers['x-printer-token'];
+    const expectedToken = process.env.PRINTER_SECRET || 'ede3d6fc2e5381127ddef2582d2373841aba683473be8b30de7405c52e3d365d';
+    if (printerToken && printerToken === expectedToken) {
+      return true;
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return false;
     const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
-    // Staff roles: admin, waiter, cashier, kitchen, manager, printer
+    // Staff roles: admin, waiter, cashier, kitchen, manager, staff, printer
     const staffRoles = ['admin', 'waiter', 'cashier', 'kitchen', 'manager', 'staff', 'printer'];
     return staffRoles.includes(decoded?.role);
   } catch {

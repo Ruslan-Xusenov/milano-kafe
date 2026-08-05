@@ -348,3 +348,26 @@ describe('🌐 Public Endpoints', () => {
     expect(res.body).toHaveProperty('bot_username');
   });
 });
+
+describe('🖨️ Printer Service', () => {
+  const defaultPrinterToken = 'ede3d6fc2e5381127ddef2582d2373841aba683473be8b30de7405c52e3d365d';
+
+  it('GET /api/orders/print-jobs → 200 with X-Printer-Token header', async () => {
+    const res = await request(app)
+      .get('/api/orders/print-jobs')
+      .set('X-Printer-Token', defaultPrinterToken);
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    // Verify that orders with 'new' status are returned for immediate receipt printing
+    const hasNewOrder = res.body.some(o => o.status === 'new');
+    expect(hasNewOrder).toBe(true);
+  });
+
+  it('POST /api/orders/print-jobs/1/done → 200 with X-Printer-Token', async () => {
+    const res = await request(app)
+      .post('/api/orders/print-jobs/1/done')
+      .set('X-Printer-Token', defaultPrinterToken);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ success: true });
+  });
+});
