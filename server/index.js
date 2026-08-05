@@ -297,6 +297,14 @@ async function runStartupMigrations() {
     });
   });
 
+  // variants ustuni — menu_items (porsiyalar, donalar, sm, litr)
+  await new Promise((resolve) => {
+    db.run("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS variants TEXT DEFAULT '[]'", [], (err) => {
+      if (err && !err.message.includes('already exists')) console.warn('[migration] variants:', err.message);
+      resolve();
+    });
+  });
+
   // temp_tokens — tokenStore uchun (global.* o'rniga)
   await new Promise((resolve) => {
     db.run(

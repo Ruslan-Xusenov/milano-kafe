@@ -10,18 +10,28 @@ const db = require('../db');
 router.get('/', (req, res) => {
   db.all('SELECT * FROM menu_items', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
+    const formatted = rows.map(r => {
+      let parsedVariants = [];
+      if (r.variants) {
+        try {
+          parsedVariants = typeof r.variants === 'string' ? JSON.parse(r.variants) : r.variants;
+        } catch (e) {}
+      }
+      return { ...r, variants: parsedVariants };
+    });
+    res.json(formatted);
   });
 });
 
 // Yangi menu item qo'shish — faqat admin
 router.post('/', (req, res) => {
-  const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available } = req.body;
+  const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available, variants } = req.body;
   if (!name || !price || !category) return res.status(400).json({ error: 'name, price, category majburiy' });
-  const sql = `INSERT INTO menu_items (name, name_ru, description, description_ru, price, category, emoji, color, weight, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const variantsStr = typeof variants === 'string' ? variants : JSON.stringify(variants || []);
+  const sql = `INSERT INTO menu_items (name, name_ru, description, description_ru, price, category, emoji, color, weight, available, variants) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
   db.run(
     sql,
-    [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available === undefined ? true : !!available],
+    [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, available === undefined ? true : !!available, variantsStr],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ id: this.lastID, ...req.body });
@@ -31,11 +41,12 @@ router.post('/', (req, res) => {
 
 // Menu itemni yangilash — faqat admin
 router.put('/:id', (req, res) => {
-  const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available } = req.body;
-  const sql = `UPDATE menu_items SET name=?, name_ru=?, description=?, description_ru=?, price=?, category=?, emoji=?, color=?, weight=?, available=? WHERE id=?`;
+  const { name, name_ru, description, description_ru, price, category, emoji, color, weight, available, variants } = req.body;
+  const variantsStr = typeof variants === 'string' ? variants : JSON.stringify(variants || []);
+  const sql = `UPDATE menu_items SET name=?, name_ru=?, description=?, description_ru=?, price=?, category=?, emoji=?, color=?, weight=?, available=?, variants=? WHERE id=?`;
   db.run(
     sql,
-    [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, !!available, req.params.id],
+    [name, name_ru || '', description, description_ru || '', price, category, emoji, color, weight, !!available, variantsStr, req.params.id],
     function (err) {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ success: true, id: req.params.id });

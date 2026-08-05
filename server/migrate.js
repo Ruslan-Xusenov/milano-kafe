@@ -66,7 +66,8 @@ const tables = [
         emoji TEXT,
         color TEXT,
         weight TEXT,
-        available BOOLEAN DEFAULT true
+        available BOOLEAN DEFAULT true,
+        variants TEXT DEFAULT '[]'
       )
     `
   },

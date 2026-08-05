@@ -39,26 +39,56 @@ router.post('/', async (req, res) => {
   }
 
   const method = payment_method || 'naqd';
-  const itemIds = items.map(i => i.id);
+  const getBaseId = (id) => (typeof id === 'string' && id.includes('_')) ? parseInt(id.split('_')[0], 10) : parseInt(id, 10);
+  const itemIds = [...new Set(items.map(i => getBaseId(i.id)).filter(id => !isNaN(id)))];
+  if (itemIds.length === 0) {
+    return res.status(400).json({ error: "Mahsulot ma'lumotlari noto'g'ri" });
+  }
   const placeholders = itemIds.map(() => '?').join(',');
 
-  db.all(`SELECT id, price FROM menu_items WHERE id IN (${placeholders}) AND available = true`, itemIds, async (err, menuRows) => {
+  db.all(`SELECT id, price, name, variants FROM menu_items WHERE id IN (${placeholders}) AND available = true`, itemIds, async (err, menuRows) => {
     if (err) return res.status(500).json({ error: err.message });
 
-    const priceMap = {};
-    menuRows.forEach(m => { priceMap[m.id] = m.price; });
+    const menuMap = {};
+    menuRows.forEach(m => { menuMap[m.id] = m; });
 
     for (const item of items) {
-      if (!priceMap[item.id]) {
+      const baseId = getBaseId(item.id);
+      if (!menuMap[baseId]) {
         return res.status(400).json({ error: `Mahsulot topilmadi yoki mavjud emas: ID ${item.id}` });
       }
     }
 
-    const verifiedItems = items.map(item => ({
-      ...item,
-      price: priceMap[item.id],
-      quantity: parseInt(item.quantity),
-    }));
+    const verifiedItems = items.map(item => {
+      const baseId = getBaseId(item.id);
+      const menuItem = menuMap[baseId];
+      let finalPrice = menuItem.price;
+      let finalName = item.name || menuItem.name;
+
+      const variantName = item.selectedVariant || (typeof item.id === 'string' && item.id.includes('_') ? item.id.split('_')[1] : null);
+      if (variantName) {
+        let variants = [];
+        try {
+          variants = typeof menuItem.variants === 'string' ? JSON.parse(menuItem.variants || '[]') : (menuItem.variants || []);
+        } catch (e) {}
+        const foundVar = variants.find(v => v.name === variantName || v.name_uz === variantName || v.name_ru === variantName);
+        if (foundVar && foundVar.price !== undefined) {
+          finalPrice = parseInt(foundVar.price, 10);
+        }
+        if (!finalName.includes(variantName)) {
+          finalName = `${menuItem.name} (${variantName})`;
+        }
+      }
+
+      return {
+        ...item,
+        id: item.id,
+        productId: baseId,
+        name: finalName,
+        price: finalPrice,
+        quantity: parseInt(item.quantity),
+      };
+    });
     const serverTotal = verifiedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const itemsJson = JSON.stringify(verifiedItems);
 
@@ -332,31 +362,50 @@ router.post('/gift', async (req, res) => {
   }
 
   // Server-side item verification — barcha item IDlar menudan tekshiriladi
-  const itemIds = items.map(i => i.id).filter(Boolean);
+  const getBaseId = (id) => (typeof id === 'string' && id.includes('_')) ? parseInt(id.split('_')[0], 10) : parseInt(id, 10);
+  const itemIds = [...new Set(items.map(i => getBaseId(i.id)).filter(Boolean))];
   if (itemIds.length === 0) {
     return res.status(400).json({ error: 'Kamida bitta to\'g\'ri item ID kerak' });
   }
 
   const placeholders = itemIds.map(() => '?').join(',');
-  db.all(`SELECT id, name, price FROM menu_items WHERE id IN (${placeholders})`, itemIds, (err, menuRows) => {
+  db.all(`SELECT id, name, price, variants FROM menu_items WHERE id IN (${placeholders})`, itemIds, (err, menuRows) => {
     if (err) return res.status(500).json({ error: err.message });
 
     const menuMap = {};
     menuRows.forEach(m => { menuMap[m.id] = m; });
 
     for (const item of items) {
-      if (!menuMap[item.id]) {
+      const baseId = getBaseId(item.id);
+      if (!menuMap[baseId]) {
         return res.status(400).json({ error: `Mahsulot topilmadi: ID ${item.id}` });
       }
     }
 
     // Server-side verified items — narx va nom menudan olinadi
-    const verifiedItems = items.map(item => ({
-      id: item.id,
-      name: menuMap[item.id].name,
-      price: menuMap[item.id].price,
-      quantity: parseInt(item.quantity) || 1,
-    }));
+    const verifiedItems = items.map(item => {
+      const baseId = getBaseId(item.id);
+      const menuItem = menuMap[baseId];
+      let finalPrice = menuItem.price;
+      let finalName = menuItem.name;
+      const variantName = item.selectedVariant || (typeof item.id === 'string' && item.id.includes('_') ? item.id.split('_')[1] : null);
+      if (variantName) {
+        let variants = [];
+        try {
+          variants = typeof menuItem.variants === 'string' ? JSON.parse(menuItem.variants || '[]') : (menuItem.variants || []);
+        } catch (e) {}
+        const foundVar = variants.find(v => v.name === variantName || v.name_uz === variantName || v.name_ru === variantName);
+        if (foundVar && foundVar.price !== undefined) finalPrice = parseInt(foundVar.price, 10);
+        finalName = `${menuItem.name} (${variantName})`;
+      }
+      return {
+        id: item.id,
+        productId: baseId,
+        name: finalName,
+        price: finalPrice,
+        quantity: parseInt(item.quantity) || 1,
+      };
+    });
 
     const itemsJson = JSON.stringify(verifiedItems);
     const sql = `INSERT INTO orders (customer_name, phone, items, total, status, address, user_id, cashback_used, cashback_earned, payment_method) VALUES (?, ?, ?, 0, 'delivering', ?, ?, 0, 0, 'sovga')`;

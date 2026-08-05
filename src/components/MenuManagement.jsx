@@ -7,7 +7,7 @@ import {
 
 const EMPTY_FORM = {
   name: '', name_ru: '', description: '', description_ru: '',
-  price: '', category: '', emoji: '', color: 'bg-gray-100', weight: ''
+  price: '', category: '', emoji: '', color: 'bg-gray-100', weight: '', variants: []
 };
 
 const MenuManagement = () => {
@@ -24,6 +24,7 @@ const MenuManagement = () => {
   const [recipeModalItem, setRecipeModalItem] = useState(null);
 
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [newVariant, setNewVariant] = useState({ name: '', price: '' });
 
   // Recipe state
   const [inventoryItems, setInventoryItems] = useState([]);
@@ -87,9 +88,23 @@ const MenuManagement = () => {
       category: item.category || '',
       emoji: item.emoji || '',
       color: item.color || 'bg-gray-100',
-      weight: item.weight || ''
+      weight: item.weight || '',
+      variants: Array.isArray(item.variants) ? item.variants : []
     });
+    setNewVariant({ name: '', price: '' });
     setShowModal(true);
+  };
+
+  const addVariant = () => {
+    if (!newVariant.name || !newVariant.price) return;
+    const updated = [...(formData.variants || []), { name: newVariant.name, name_ru: newVariant.name, price: Number(newVariant.price) }];
+    setFormData({ ...formData, variants: updated });
+    setNewVariant({ name: '', price: '' });
+  };
+
+  const removeVariant = (idx) => {
+    const updated = (formData.variants || []).filter((_, i) => i !== idx);
+    setFormData({ ...formData, variants: updated });
   };
 
   // ---- Submit (Add / Edit) ----
@@ -277,6 +292,15 @@ const MenuManagement = () => {
                     <div>
                       <div className="font-medium text-gray-900">{item.name}</div>
                       <div className="text-xs text-gray-400">{item.name_ru}</div>
+                      {item.variants && item.variants.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {item.variants.map((v, idx) => (
+                            <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 text-[11px] px-1.5 py-0.5 rounded font-medium">
+                              {v.name}: {Number(v.price).toLocaleString()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -438,6 +462,63 @@ const MenuManagement = () => {
                   placeholder="🍔 yoki https://..."
                   className="w-full p-2 border rounded-lg outline-none focus:border-amber-400" />
               </div>
+
+              {/* Variantlar boshqaruvi */}
+              <div className="border border-gray-200 rounded-xl p-3.5 bg-gray-50/70 mt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Mahsulot variantlari (Porsi, dona, litr, sm, xl)
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Agar taom turli hajm yoki miqdorda (masalan: 0.5l, 1 porsiya, 4 dona, 30sm) sotilsa, bu yerdan belgilashingiz mumkin:
+                </p>
+                
+                {/* Mavjud variantlar */}
+                {formData.variants && formData.variants.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mb-3">
+                    {formData.variants.map((v, i) => (
+                      <div key={i} className="flex items-center justify-between bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-xs">
+                        <span className="font-medium text-sm text-gray-800">{v.name}</span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-amber-600 font-semibold">{Number(v.price).toLocaleString()} UZS</span>
+                          <button
+                            type="button"
+                            onClick={() => removeVariant(i)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Yangi variant qo'shish inputlari */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="Nomi: 0.5L, 1 pors..."
+                    value={newVariant.name}
+                    onChange={e => setNewVariant({ ...newVariant, name: e.target.value })}
+                    className="flex-1 p-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-amber-400"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Narxi (UZS)"
+                    value={newVariant.price}
+                    onChange={e => setNewVariant({ ...newVariant, price: e.target.value })}
+                    className="w-32 p-2 bg-white border border-gray-300 rounded-lg text-sm outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={addVariant}
+                    className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> Qo'shish
+                  </button>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
