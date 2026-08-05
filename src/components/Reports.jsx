@@ -19,32 +19,43 @@ const Reports = () => {
 
   if (loading) return <div>Yuklanmoqda...</div>;
 
-  const completedOrders = orders.filter(o => o.status === 'completed');
+  const completedOrders = orders.filter(o => o.status === 'completed' || o.payment_method === 'sovga' || o.status === "Sovg'a yuborildi");
   
   // Sovg'alarni va pullik buyurtmalarni ajratish
-  const paidOrders = completedOrders.filter(o => o.payment_method !== 'sovga');
-  const giftOrders = completedOrders.filter(o => o.payment_method === 'sovga');
+  const isGift = (o) => o.payment_method === 'sovga' || o.status === "Sovg'a yuborildi";
+  const paidOrders = completedOrders.filter(o => !isGift(o));
+  const giftOrders = completedOrders.filter(o => isGift(o));
 
-  const totalRevenue = paidOrders.reduce((sum, o) => sum + o.total, 0);
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
   const totalOrders = completedOrders.length;
   
   const paymentBreakdown = {
-    naqd: paidOrders.filter(o => o.payment_method === 'naqd' || !o.payment_method).reduce((sum, o) => sum + o.total, 0),
-    karta: paidOrders.filter(o => o.payment_method === 'karta').reduce((sum, o) => sum + o.total, 0),
-    click: paidOrders.filter(o => o.payment_method === 'click' || o.payment_method === 'click/payme').reduce((sum, o) => sum + o.total, 0),
-    sovgaSumma: giftOrders.reduce((sum, o) => sum + o.total, 0),
+    naqd: paidOrders.filter(o => o.payment_method === 'naqd' || !o.payment_method).reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+    karta: paidOrders.filter(o => o.payment_method === 'karta').reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+    click: paidOrders.filter(o => o.payment_method === 'click' || o.payment_method === 'click/payme').reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+    sovgaSumma: giftOrders.reduce((sum, o) => {
+      let itemsTotal = 0;
+      try {
+        const items = typeof o.items === 'string' ? JSON.parse(o.items) : (o.items || []);
+        itemsTotal = items.reduce((iSum, item) => iSum + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+      } catch (e) {}
+      return sum + (itemsTotal || Number(o.total) || 0);
+    }, 0),
     sovgaSoni: giftOrders.length,
   };
 
   // Calculate top items
   const itemCounts = {};
   completedOrders.forEach(order => {
+    const isGiftOrder = isGift(order);
     let items = [];
-    try { items = typeof order.items === 'string' ? JSON.parse(order.items) : order.items; } catch(e) {}
+    try { items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []); } catch(e) {}
     items.forEach(item => {
       if (!itemCounts[item.name]) itemCounts[item.name] = { count: 0, revenue: 0 };
-      itemCounts[item.name].count += item.quantity;
-      itemCounts[item.name].revenue += item.price * item.quantity;
+      itemCounts[item.name].count += (Number(item.quantity) || 1);
+      if (!isGiftOrder) {
+        itemCounts[item.name].revenue += (Number(item.price) || 0) * (Number(item.quantity) || 1);
+      }
     });
   });
 
