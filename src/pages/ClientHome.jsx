@@ -142,7 +142,11 @@ const ClientHome = () => {
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = getTotal();
-  const getItemQuantity = (id) => { const item = cartItems.find(i => i.id === id); return item ? item.quantity : 0; };
+  const getItemQuantity = (id) => {
+    return cartItems
+      .filter(i => i.id === id || i.baseId === id || (typeof i.id === 'string' && i.id.startsWith(id + '_')))
+      .reduce((sum, i) => sum + i.quantity, 0);
+  };
 
   return (
     <div className="flex h-screen bg-[#FFF2E1] font-sans overflow-hidden text-[#A79277]">
@@ -321,6 +325,8 @@ const ClientHome = () => {
           onClose={() => setSelectedProduct(null)}
           addToCart={addToCart}
           removeFromCart={removeFromCart}
+          updateQuantity={updateQuantity}
+          cartItems={cartItems}
           quantity={getItemQuantity(selectedProduct.id)}
         />
       )}

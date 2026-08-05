@@ -34,6 +34,13 @@ const MenuSection = ({ menuItems, categories, activeCategory, searchQuery, addTo
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 px-4 lg:px-0">
         {filtered.map((item) => {
           const qty = getItemQuantity(item.id);
+          let variants = [];
+          try {
+            variants = typeof item.variants === 'string' ? JSON.parse(item.variants || '[]') : (item.variants || []);
+          } catch (e) { variants = []; }
+          const hasVariants = variants.length > 0;
+          const displayPrice = hasVariants ? Math.min(...variants.map(v => Number(v.price) || Number(item.price))) : item.price;
+
           return (
             <div
               key={item.id}
@@ -65,28 +72,49 @@ const MenuSection = ({ menuItems, categories, activeCategory, searchQuery, addTo
 
                 <div className="mt-auto flex items-center justify-between pt-2">
                   <span className="text-[15px] sm:text-[17px] font-bold text-[#A79277] leading-none tracking-tight">
-                    {formatNumber(item.price)} <span className="text-[12px] font-medium text-[#A79277]/70">so'm</span>
+                    {formatNumber(displayPrice)} <span className="text-[12px] font-medium text-[#A79277]/70">so'm{hasVariants ? 'dan' : ''}</span>
                   </span>
 
                   {qty === 0 ? (
                     <button
-                      onClick={(e) => { e.stopPropagation(); addToCart(item); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasVariants) {
+                          setSelectedProduct(item);
+                        } else {
+                          addToCart(item);
+                        }
+                      }}
                       className="w-10 h-10 bg-[#F7E998]/50 hover:bg-[#F7E998] text-[#A79277] rounded-[10px] transition-colors flex items-center justify-center flex-shrink-0"
                     >
                       <Plus size={20} strokeWidth={2.5} />
                     </button>
                   ) : (
                     <div
-                      className="flex items-center justify-between bg-white rounded-[10px] p-1 w-[90px] border border-[#A79277]/20 shadow-sm"
-                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center justify-between bg-white rounded-[10px] p-1 w-[90px] border border-[#A79277]/20 shadow-sm cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (hasVariants) {
+                          setSelectedProduct(item);
+                        }
+                      }}
                     >
-                      <button onClick={() => updateQuantity(item.id, -1)} className="w-7 h-7 rounded-[8px] bg-[#FFF2E1] flex items-center justify-center text-[#A79277] hover:bg-[#F7E998]/50 transition-colors">
-                        <Minus size={16} strokeWidth={2.5} />
-                      </button>
-                      <span className="font-bold text-[14px] text-[#A79277]">{qty}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="w-7 h-7 rounded-[8px] bg-[#FF4747] flex items-center justify-center text-white hover:bg-[#FF4747]/90 transition-colors">
-                        <Plus size={16} strokeWidth={2.5} />
-                      </button>
+                      {hasVariants ? (
+                        <div className="w-full text-center py-0.5 text-xs font-black text-[#FF4747] flex items-center justify-center gap-1 hover:opacity-80">
+                          <span>{qty} dona</span>
+                          <span className="text-[10px] text-[#A79277]/70">(Tanlash)</span>
+                        </div>
+                      ) : (
+                        <>
+                          <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }} className="w-7 h-7 rounded-[8px] bg-[#FFF2E1] flex items-center justify-center text-[#A79277] hover:bg-[#F7E998]/50 transition-colors">
+                            <Minus size={16} strokeWidth={2.5} />
+                          </button>
+                          <span className="font-bold text-[14px] text-[#A79277]">{qty}</span>
+                          <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, 1); }} className="w-7 h-7 rounded-[8px] bg-[#FF4747] flex items-center justify-center text-white hover:bg-[#FF4747]/90 transition-colors">
+                            <Plus size={16} strokeWidth={2.5} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
