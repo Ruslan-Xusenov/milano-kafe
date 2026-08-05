@@ -65,8 +65,8 @@ function requirePrinter(req, res, next) {
   return res.status(401).json({ error: 'Printer autentifikatsiya talab qilinadi' });
 }
 
-const requireStaff = requireAuth(['admin', 'superadmin', 'waiter', 'cashier']);
-const requireAdmin = requireAuth(['admin', 'superadmin']);
+const requireStaff = requireAuth(['admin', 'superadmin', 'owner', 'boss', 'waiter', 'cashier', 'kitchen', 'manager', 'staff', 'printer']);
+const requireAdmin = requireAuth(['admin', 'superadmin', 'owner', 'boss']);
 const requireClient = requireAuth(['client']);
 const requireAnyAuth = requireAuth([]);
 

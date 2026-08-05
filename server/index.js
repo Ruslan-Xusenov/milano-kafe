@@ -268,6 +268,13 @@ staffBase.post('/work-sessions/end', requireStaff, (req, res, next) => { req.url
 staffBase.get('/work-sessions/earned/:staffId', requireStaff, (req, res, next) => { req.url = `/work-sessions/earned/${req.params.staffId}`; staffRouter(req, res, next); });
 app.use('/api/staff', staffBase);
 
+const workSessionsBase = express.Router();
+workSessionsBase.get('/current/:staffId', requireStaff, (req, res, next) => { req.url = `/work-sessions/current/${req.params.staffId}`; staffRouter(req, res, next); });
+workSessionsBase.post('/start', requireStaff, (req, res, next) => { req.url = '/work-sessions/start'; staffRouter(req, res, next); });
+workSessionsBase.post('/end', requireStaff, (req, res, next) => { req.url = '/work-sessions/end'; staffRouter(req, res, next); });
+workSessionsBase.get('/earned/:staffId', requireStaff, (req, res, next) => { req.url = `/work-sessions/earned/${req.params.staffId}`; staffRouter(req, res, next); });
+app.use('/api/work-sessions', workSessionsBase);
+
 // ============================================================
 // --- NOTIFICATIONS ---
 // ============================================================

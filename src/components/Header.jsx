@@ -46,8 +46,8 @@ const Header = ({ setIsSidebarOpen }) => {
   const fetchSessionData = async () => {
     try {
       const [sessionRes, earnedRes] = await Promise.all([
-        apiFetch(`/api/work-sessions/current/${user.id}`),
-        apiFetch(`/api/work-sessions/earned/${user.id}`)
+        apiFetch(`/api/staff/work-sessions/current/${user.id}`),
+        apiFetch(`/api/staff/work-sessions/earned/${user.id}`)
       ]);
       if (sessionRes.ok) setCurrentSession(await sessionRes.json());
       if (earnedRes.ok) {
@@ -59,7 +59,7 @@ const Header = ({ setIsSidebarOpen }) => {
 
   const handleStartWork = async () => {
     try {
-      await apiFetch('/api/work-sessions/start', {
+      await apiFetch('/api/staff/work-sessions/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ staff_id: user.id })
@@ -71,7 +71,7 @@ const Header = ({ setIsSidebarOpen }) => {
   const handleEndWork = async () => {
     if (!currentSession) return;
     try {
-      await apiFetch('/api/work-sessions/end', {
+      await apiFetch('/api/staff/work-sessions/end', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: currentSession.id, staff_id: user.id })

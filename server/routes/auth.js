@@ -273,12 +273,12 @@ router.post('/client/telegram/verify', async (req, res) => {
 // ============================================================
 
 // Profil ma'lumotlarini yangilash — faqat o'zi
-router.put('/client/update', (req, res) => {
+router.put('/client/update', requireAnyAuth, (req, res) => {
   const { id, name, phone, email, birthday } = req.body;
   if (!id) return res.status(400).json({ error: 'Foydalanuvchi IDsi kerak' });
 
   // IDOR fix
-  if (req.user.id !== parseInt(id)) {
+  if (!req.user || Number(req.user.id) !== Number(id)) {
     return res.status(403).json({ error: 'Ruxsat yo\'q' });
   }
 

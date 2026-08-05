@@ -86,7 +86,7 @@ router.post('/work-sessions/start', (req, res) => {
   const { staff_id } = req.body;
   const requestorRole = req.user?.role?.toLowerCase();
   // IDOR: faqat o'zining sessionini boshlashi mumkin (admin istisnosi bilan)
-  if (!['admin', 'superadmin'].includes(requestorRole) && req.user.id !== parseInt(staff_id)) {
+  if (!['admin', 'superadmin', 'owner', 'boss'].includes(requestorRole) && Number(req.user?.id) !== Number(staff_id)) {
     return res.status(403).json({ error: 'Faqat o\'z sessioningizni boshqarish mumkin' });
   }
   db.run('INSERT INTO work_sessions (staff_id) VALUES (?)', [staff_id], function (err) {
@@ -100,7 +100,7 @@ router.post('/work-sessions/end', (req, res) => {
   const { id, staff_id } = req.body;
   const requestorRole = req.user?.role?.toLowerCase();
   // IDOR: faqat o'zining sessionini tugatishi mumkin (admin istisnosi bilan)
-  if (!['admin', 'superadmin'].includes(requestorRole) && req.user.id !== parseInt(staff_id)) {
+  if (!['admin', 'superadmin', 'owner', 'boss'].includes(requestorRole) && Number(req.user?.id) !== Number(staff_id)) {
     return res.status(403).json({ error: 'Faqat o\'z sessioningizni boshqarish mumkin' });
   }
   db.get('SELECT salary FROM staff WHERE id = ?', [staff_id], (err, staff) => {
