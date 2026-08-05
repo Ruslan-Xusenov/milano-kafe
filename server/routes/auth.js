@@ -35,7 +35,7 @@ router.post('/login', async (req, res) => {
     if (!isValid) return res.status(401).json({ error: "Login yoki parol noto'g'ri" });
 
     const { password: _, ...staffData } = row;
-    const token = jwt.sign({ id: row.id, role: row.role }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: row.id, role: row.role }, JWT_SECRET, { expiresIn: '365d' });
     res.json({ user: staffData, token });
   });
 });

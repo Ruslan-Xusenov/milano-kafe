@@ -77,12 +77,15 @@ const skipForStaff = (req) => {
 
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) return false;
-    const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
-    // Staff roles: admin, waiter, cashier, kitchen, manager, staff, printer
-    const staffRoles = ['admin', 'waiter', 'cashier', 'kitchen', 'manager', 'staff', 'printer'];
-    return staffRoles.includes(decoded?.role);
+    const token = authHeader.split(' ')[1];
+    // ignoreExpiration: true prevents IP blocking if an admin keeps the tab open 24/7 and the token expires
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+    const role = decoded?.role?.toLowerCase();
+    // Staff roles: admin, superadmin, waiter, cashier, kitchen, manager, staff, printer, owner, boss
+    const staffRoles = ['admin', 'superadmin', 'owner', 'boss', 'waiter', 'cashier', 'kitchen', 'manager', 'staff', 'printer'];
+    return staffRoles.includes(role);
   } catch {
-    // Invalid/expired token — don't skip, let rate limiter apply normally
+    // Invalid/corrupted token — let rate limiter apply normally
     return false;
   }
 };
@@ -90,7 +93,7 @@ const skipForStaff = (req) => {
 // General: 500 req / 15 min (unauthenticated / client users only)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   skip: skipForStaff, // ← Staff/admin don't hit this limit
@@ -101,19 +104,19 @@ const generalLimiter = rateLimit({
 // Kanban polling: high limit for unauthenticated (already skipped for staff above)
 const kanbanLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 2000,
+  max: 3000,
   standardHeaders: false,
   legacyHeaders: false,
   skip: skipForStaff, // ← Staff/admin bypass — they poll all day legitimately
   validate: { xForwardedForHeader: false, trustProxy: false },
 });
 
-// Auth: strict — 20 req / 15 min (brute force protection for login endpoints)
-// NOTE: Auth limiter does NOT skip for staff — login endpoints should always be limited.
+// Auth: strict protection for login endpoints, but allow authenticated staff to bypass
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 50,
   legacyHeaders: false,
+  skip: skipForStaff, // ← Don't block logged-in staff navigating auth routes
   message: { error: 'Xavfsizlik nuqtai nazaridan vaqtinchalik cheklov. Keyinroq urinib ko\'ring.' },
   validate: { xForwardedForHeader: false, trustProxy: false },
 });
