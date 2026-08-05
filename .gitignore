@@ -23,7 +23,8 @@ dist-*
 *.sln
 *.sw?
 server/node_modules
-server/cafebot.db
+server/*.db
+*.db
 .env
 server/.env
 *.apk
