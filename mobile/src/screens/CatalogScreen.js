@@ -15,16 +15,39 @@ const TEXT_SECONDARY = '#AAAAAA';
 const BORDER_COLOR = 'rgba(255,255,255,0.07)';
 
 const formatNumber = (num) => {
-  return Number(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const n = Number(num);
+  if (isNaN(n)) return '0';
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+};
+
+// Parse variants safely from item
+const parseVariants = (item) => {
+  try {
+    const v = typeof item?.variants === 'string' ? JSON.parse(item.variants || '[]') : (item?.variants || []);
+    return Array.isArray(v) ? v : [];
+  } catch (e) {
+    return [];
+  }
 };
 
 // Memoized Product Card - only re-renders when its own props change
 const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, lang }) => {
+  const variants = parseVariants(item);
+  const hasVariants = variants.length > 0;
+  const displayPrice = hasVariants
+    ? Math.min(...variants.map(v => Number(v.price) || Number(item.price || 0)))
+    : (Number(item.price) || 0);
+
   return (
     <TouchableOpacity style={styles.productCard} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.productImageContainer}>
         {item.emoji?.startsWith('http') ? (
-          <Image source={{ uri: item.emoji }} style={styles.productImage} />
+          <Image
+            source={{ uri: item.emoji }}
+            style={styles.productImage}
+            resizeMode="cover"
+            fadeDuration={0}
+          />
         ) : (
           <Text style={styles.productEmoji}>{item.emoji}</Text>
         )}
@@ -42,33 +65,39 @@ const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, la
         </View>
         <View style={styles.productFooter}>
           <View>
-            <Text style={styles.productPrice}>{formatNumber(item.price)}</Text>
-            <Text style={styles.productPriceSuffix}>so'm</Text>
+            <Text style={styles.productPrice}>{formatNumber(displayPrice)}</Text>
+            <Text style={styles.productPriceSuffix}>so'm{hasVariants ? 'dan' : ''}</Text>
           </View>
           {qty === 0 ? (
             <TouchableOpacity
               style={styles.addBtn}
-              onPress={onAdd}
+              onPress={hasVariants ? onPress : onAdd}
               activeOpacity={0.7}
             >
               <Plus size={20} color={ACCENT} strokeWidth={3} />
             </TouchableOpacity>
           ) : (
-            <View style={styles.qtyControlInline}>
-              <TouchableOpacity
-                onPress={onMinus}
-                style={styles.qtyBtnMinus}
-              >
-                <Minus size={14} color={TEXT_SECONDARY} strokeWidth={2.5} />
+            hasVariants ? (
+              <TouchableOpacity style={styles.variantQtyBadge} onPress={onPress} activeOpacity={0.7}>
+                <Text style={styles.variantQtyText}>{qty}✓</Text>
               </TouchableOpacity>
-              <Text style={styles.qtyTextInline}>{qty}</Text>
-              <TouchableOpacity
-                onPress={onPlus}
-                style={styles.qtyBtnPlus}
-              >
-                <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
-              </TouchableOpacity>
-            </View>
+            ) : (
+              <View style={styles.qtyControlInline}>
+                <TouchableOpacity
+                  onPress={onMinus}
+                  style={styles.qtyBtnMinus}
+                >
+                  <Minus size={14} color={TEXT_SECONDARY} strokeWidth={2.5} />
+                </TouchableOpacity>
+                <Text style={styles.qtyTextInline}>{qty}</Text>
+                <TouchableOpacity
+                  onPress={onPlus}
+                  style={styles.qtyBtnPlus}
+                >
+                  <Plus size={14} color="#FFFFFF" strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+            )
           )}
         </View>
       </View>
@@ -83,6 +112,7 @@ export default function CatalogScreen({ route }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
   const { t, i18n } = useTranslation();
 
   const { cartItems, addToCart, removeFromCart, updateQuantity } = useContext(CartContext);
@@ -112,9 +142,25 @@ export default function CatalogScreen({ route }) {
   }, [route.params?.category]);
 
   // Build a quick lookup map for cart quantities to avoid .find() on every render
+  // For variant items, sum all variant quantities under same baseId
   const cartQuantityMap = useMemo(() => {
     const map = {};
-    cartItems.forEach(item => { map[item.id] = item.quantity; });
+    cartItems.forEach(item => {
+      // Direct id quantity
+      map[item.id] = (map[item.id] || 0) + item.quantity;
+      // Also accumulate to baseId so parent card shows total count
+      if (item.baseId && item.baseId !== item.id) {
+        map[item.baseId] = (map[item.baseId] || 0) + item.quantity;
+      }
+      // Handle string ids like "123_4dona" — accumulate to base numeric id
+      if (typeof item.id === 'string') {
+        const underscoreIdx = item.id.indexOf('_');
+        if (underscoreIdx > 0) {
+          const baseId = item.id.slice(0, underscoreIdx);
+          map[baseId] = (map[baseId] || 0) + item.quantity;
+        }
+      }
+    });
     return map;
   }, [cartItems]);
 
@@ -151,10 +197,6 @@ export default function CatalogScreen({ route }) {
     updateQuantity(id, 1);
   }, [updateQuantity]);
 
-  const handleSelectProduct = useCallback((item) => {
-    setSelectedProduct(item);
-  }, []);
-
   const handleSearchChange = useCallback((text) => {
     setSearchQuery(text);
     if (text.trim()) {
@@ -168,6 +210,14 @@ export default function CatalogScreen({ route }) {
 
   const handleCloseModal = useCallback(() => {
     setSelectedProduct(null);
+    setSelectedVariant(null);
+  }, []);
+
+  const handleSelectProduct = useCallback((item) => {
+    setSelectedProduct(item);
+    // Auto-select first variant if available
+    const v = parseVariants(item);
+    setSelectedVariant(v.length > 0 ? v[0] : null);
   }, []);
 
   // Render item for FlatList
@@ -244,7 +294,12 @@ export default function CatalogScreen({ route }) {
               activeOpacity={0.8}
             >
               {cat.emoji?.startsWith('http') ? (
-                <Image source={{ uri: cat.emoji }} style={styles.categoryChipImage} />
+                <Image
+                  source={{ uri: cat.emoji }}
+                  style={styles.categoryChipImage}
+                  resizeMode="cover"
+                  fadeDuration={0}
+                />
               ) : (
                 <Text style={styles.categoryChipEmoji}>{cat.emoji}</Text>
               )}
@@ -273,7 +328,7 @@ export default function CatalogScreen({ route }) {
       />
 
       {/* Product Modal */}
-      <Modal visible={!!selectedProduct} transparent animationType="slide">
+      <Modal visible={!!selectedProduct} transparent animationType="slide" onRequestClose={handleCloseModal}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={handleCloseModal} activeOpacity={1} />
           <View style={styles.modalContent}>
@@ -282,60 +337,132 @@ export default function CatalogScreen({ route }) {
               <X size={18} color={TEXT_SECONDARY} />
             </TouchableOpacity>
 
-            {selectedProduct && (
-              <>
-                <View style={styles.modalImageContainer}>
-                  {selectedProduct.emoji?.startsWith('http') ? (
-                    <Image source={{ uri: selectedProduct.emoji }} style={styles.modalProductImage} />
-                  ) : (
-                    <Text style={styles.modalEmoji}>{selectedProduct.emoji}</Text>
-                  )}
-                </View>
-                <View style={styles.modalBody}>
-                  <View style={styles.modalTitleRow}>
-                    <Text style={styles.modalTitle}>
-                      {i18n.language === 'ru' ? selectedProduct.name_ru || selectedProduct.name : selectedProduct.name}
-                    </Text>
-                    {selectedProduct.weight && (
-                      <View style={styles.modalWeightBadge}>
-                        <Text style={styles.modalWeightText}>{selectedProduct.weight}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.modalDesc}>
-                    {i18n.language === 'ru' 
-                      ? selectedProduct.description_ru || selectedProduct.description || "Вкусное блюдо, приготовлено из лучших ингредиентов."
-                      : selectedProduct.description || "Mazali taom, eng yaxshi masalliqlardan tayyorlangan."}
-                  </Text>
+            {selectedProduct && (() => {
+              const variants = parseVariants(selectedProduct);
+              const hasVariants = variants.length > 0;
+              const currentPrice = selectedVariant ? Number(selectedVariant.price) : Number(selectedProduct.price || 0);
+              const currentId = selectedVariant ? `${selectedProduct.id}_${selectedVariant.name}` : selectedProduct.id;
+              const currentQty = cartQuantityMap[currentId] || 0;
 
-                  <View style={styles.modalFooter}>
-                    <View>
-                      <Text style={styles.modalPrice}>{formatNumber(selectedProduct.price)}</Text>
-                      <Text style={styles.modalPriceSuffix}>so'm</Text>
-                    </View>
-                    {getItemQuantity(selectedProduct.id) === 0 ? (
-                      <TouchableOpacity
-                        style={styles.modalAddBtn}
-                        onPress={() => { addToCart(selectedProduct); setSelectedProduct(null); }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.modalAddText}>{t('add_to_cart', "Savatga qo'shish")}</Text>
-                      </TouchableOpacity>
+              return (
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  <View style={styles.modalImageContainer}>
+                    {selectedProduct.emoji?.startsWith('http') ? (
+                      <Image
+                        source={{ uri: selectedProduct.emoji }}
+                        style={styles.modalProductImage}
+                        resizeMode="cover"
+                        fadeDuration={0}
+                      />
                     ) : (
-                      <View style={styles.modalQtyControl}>
-                        <TouchableOpacity onPress={() => updateQuantity(selectedProduct.id, -1)} style={styles.modalQtyBtn}>
-                          <Minus size={20} color={TEXT_SECONDARY} />
-                        </TouchableOpacity>
-                        <Text style={styles.modalQtyText}>{getItemQuantity(selectedProduct.id)}</Text>
-                        <TouchableOpacity onPress={() => updateQuantity(selectedProduct.id, 1)} style={styles.modalQtyBtnPlus}>
-                          <Plus size={20} color="#FFFFFF" />
-                        </TouchableOpacity>
-                      </View>
+                      <Text style={styles.modalEmoji}>{selectedProduct.emoji}</Text>
                     )}
                   </View>
-                </View>
-              </>
-            )}
+                  <View style={styles.modalBody}>
+                    <View style={styles.modalTitleRow}>
+                      <Text style={styles.modalTitle}>
+                        {i18n.language === 'ru' ? selectedProduct.name_ru || selectedProduct.name : selectedProduct.name}
+                      </Text>
+                      {selectedProduct.weight && (
+                        <View style={styles.modalWeightBadge}>
+                          <Text style={styles.modalWeightText}>{selectedProduct.weight}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.modalDesc}>
+                      {i18n.language === 'ru'
+                        ? selectedProduct.description_ru || selectedProduct.description || "Вкусное блюдо, приготовлено из лучших ингредиентов."
+                        : selectedProduct.description || "Mazali taom, eng yaxshi masalliqlardan tayyorlangan."}
+                    </Text>
+
+                    {/* Variants Selector */}
+                    {hasVariants && (
+                      <View style={styles.variantsSection}>
+                        <Text style={styles.variantsSectionTitle}>Porsiya / O'lchamni tanlang:</Text>
+                        <View style={styles.variantsGrid}>
+                          {variants.map((v, idx) => {
+                            const isSelected = selectedVariant && selectedVariant.name === v.name;
+                            const vId = `${selectedProduct.id}_${v.name}`;
+                            const vQty = cartQuantityMap[vId] || 0;
+                            return (
+                              <TouchableOpacity
+                                key={idx}
+                                style={[styles.variantChip, isSelected && styles.variantChipActive]}
+                                onPress={() => setSelectedVariant(v)}
+                                activeOpacity={0.8}
+                              >
+                                {vQty > 0 && (
+                                  <View style={styles.variantQtyDot}>
+                                    <Text style={styles.variantQtyDotText}>{vQty}</Text>
+                                  </View>
+                                )}
+                                <Text style={[styles.variantChipName, isSelected && styles.variantChipNameActive]}>{v.name}</Text>
+                                <Text style={[styles.variantChipPrice, isSelected && styles.variantChipPriceActive]}>
+                                  {formatNumber(v.price)} so'm
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    <View style={styles.modalFooter}>
+                      <View>
+                        <Text style={styles.modalPrice}>{formatNumber(currentPrice)}</Text>
+                        <Text style={styles.modalPriceSuffix}>so'm{selectedVariant ? ` (${selectedVariant.name})` : ''}</Text>
+                      </View>
+                      {currentQty === 0 ? (
+                        <TouchableOpacity
+                          style={styles.modalAddBtn}
+                          onPress={() => {
+                            addToCart({
+                              ...selectedProduct,
+                              id: currentId,
+                              baseId: selectedProduct.id,
+                              name: selectedVariant
+                                ? `${selectedProduct.name} (${selectedVariant.name})`
+                                : selectedProduct.name,
+                              price: currentPrice,
+                              selectedVariant: selectedVariant ? selectedVariant.name : null,
+                            });
+                            if (!hasVariants) handleCloseModal();
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.modalAddText}>{t('add_to_cart', "Savatga qo'shish")}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.modalQtyControl}>
+                          <TouchableOpacity
+                            onPress={() => updateQuantity(currentId, -1)}
+                            style={styles.modalQtyBtn}
+                          >
+                            <Minus size={20} color={TEXT_SECONDARY} />
+                          </TouchableOpacity>
+                          <Text style={styles.modalQtyText}>{currentQty}</Text>
+                          <TouchableOpacity
+                            onPress={() => addToCart({
+                              ...selectedProduct,
+                              id: currentId,
+                              baseId: selectedProduct.id,
+                              name: selectedVariant
+                                ? `${selectedProduct.name} (${selectedVariant.name})`
+                                : selectedProduct.name,
+                              price: currentPrice,
+                              selectedVariant: selectedVariant ? selectedVariant.name : null,
+                            })}
+                            style={styles.modalQtyBtnPlus}
+                          >
+                            <Plus size={20} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </ScrollView>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -394,7 +521,7 @@ const styles = StyleSheet.create({
     height: 125, backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center', overflow: 'hidden'
   },
   productEmoji: { fontSize: 54 },
-  productImage: { width: '100%', height: '100%' },
+  productImage: { width: '100%', height: 125, resizeMode: 'cover' },
   productInfo: { padding: 12 },
   productNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   productName: { fontSize: 14, fontWeight: '700', color: TEXT_PRIMARY, flex: 1, lineHeight: 20, marginRight: 4 },
@@ -436,7 +563,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16, borderRadius: 20, marginTop: 8, overflow: 'hidden',
     borderWidth: 1, borderColor: BORDER_COLOR
   },
-  modalProductImage: { width: '100%', height: '100%' },
+  modalProductImage: { width: '100%', height: 210, resizeMode: 'cover' },
   modalEmoji: { fontSize: 96 },
   modalBody: { padding: 22 },
   modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
@@ -462,4 +589,38 @@ const styles = StyleSheet.create({
   modalQtyBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#333333', justifyContent: 'center', alignItems: 'center' },
   modalQtyBtnPlus: { width: 40, height: 40, borderRadius: 14, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center' },
   modalQtyText: { marginHorizontal: 14, fontSize: 18, fontWeight: '900', color: TEXT_PRIMARY },
+
+  // Variants section
+  variantsSection: { marginBottom: 20 },
+  variantsSectionTitle: { fontSize: 13, fontWeight: '700', color: TEXT_SECONDARY, marginBottom: 12, letterSpacing: 0.2 },
+  variantsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  variantChip: {
+    position: 'relative',
+    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: DARK_SURFACE, borderRadius: 14,
+    borderWidth: 1.5, borderColor: BORDER_COLOR,
+    minWidth: 80, alignItems: 'flex-start',
+    marginRight: 8, marginBottom: 8,
+  },
+  variantChipActive: {
+    backgroundColor: 'rgba(255,71,71,0.15)', borderColor: ACCENT,
+  },
+  variantChipName: { fontSize: 14, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 2 },
+  variantChipNameActive: { color: ACCENT },
+  variantChipPrice: { fontSize: 12, fontWeight: '700', color: TEXT_SECONDARY },
+  variantChipPriceActive: { color: ACCENT },
+  variantQtyDot: {
+    position: 'absolute', top: -6, right: -6,
+    backgroundColor: '#2E7D32', borderRadius: 10, minWidth: 18, height: 18,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
+    borderWidth: 1.5, borderColor: DARK_CARD,
+  },
+  variantQtyDotText: { fontSize: 10, fontWeight: '900', color: '#FFFFFF' },
+
+  // Variant qty badge on product card
+  variantQtyBadge: {
+    backgroundColor: 'rgba(255,71,71,0.12)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 1, borderColor: 'rgba(255,71,71,0.3)',
+  },
+  variantQtyText: { fontSize: 13, fontWeight: '800', color: ACCENT },
 });

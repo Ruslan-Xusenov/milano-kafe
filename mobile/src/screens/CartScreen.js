@@ -121,7 +121,11 @@ export default function CartScreen({ navigation }) {
           <View key={item.id} style={styles.cartItem}>
             <View style={styles.itemImageWrap}>
               {item.emoji?.startsWith('http') ? (
-                <Image source={{ uri: item.emoji }} style={{ width: '100%', height: '100%', borderRadius: 14 }} />
+                <Image
+                  source={{ uri: item.emoji }}
+                  style={{ width: '100%', height: 70, borderRadius: 14, resizeMode: 'cover' }}
+                  fadeDuration={0}
+                />
               ) : (
                 <Text style={styles.itemEmoji}>{item.emoji}</Text>
               )}
