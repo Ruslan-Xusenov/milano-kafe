@@ -18,20 +18,9 @@ bot.getMe().then(me => {
 bot.on('message', (msg) => {
   const text = msg.text || '';
   
-  // Faqat saytdan kelgan tokenli link orqali login — qo'lda "/start login" ishlamaydi
-  if (text.startsWith('/start web_')) {
-    const loginToken = text.replace('/start web_', '').trim();
-
-    // DB-backed tokenStore (replaces global.telegramLoginTokens)
-    tokenStore.get(loginToken, true).then(stored => {
-      if (!stored) {
-        return bot.sendMessage(msg.chat.id,
-          '❌ Havola yaroqsiz yoki muddati o\'tgan.\n\nIltimos, saytga qaytib qaytadan urinib ko\'ring.',
-          { parse_mode: 'Markdown' }
-        );
-      }
-
-      // Token to'g'ri — telefon so'rash
+  // Saytdan kelgan tokenli link yoki mobil ilovadan to'g'ridan-to'g'ri /start login
+  if (text.startsWith('/start web_') || text === '/start login') {
+    const askForPhone = () => {
       bot.sendMessage(msg.chat.id,
         `👋 Salom!\n\nTizimga kirish uchun telefon raqamingizni yuboring:`,
       {
@@ -42,9 +31,26 @@ bot.on('message', (msg) => {
           one_time_keyboard: true
         }
       }
-      )
-        .catch(err => console.error('[bot] sendMessage error:', err.message));
-    }).catch(err => console.error('[bot] tokenStore.get error:', err.message));
+      ).catch(err => console.error('[bot] sendMessage error:', err.message));
+    };
+
+    if (text === '/start login') {
+      askForPhone();
+    } else {
+      const loginToken = text.replace('/start web_', '').trim();
+
+      // DB-backed tokenStore (replaces global.telegramLoginTokens)
+      tokenStore.get(loginToken, true).then(stored => {
+        if (!stored) {
+          return bot.sendMessage(msg.chat.id,
+            '❌ Havola yaroqsiz yoki muddati o\'tgan.\n\nIltimos, saytga qaytib qaytadan urinib ko\'ring.',
+            { parse_mode: 'Markdown' }
+          );
+        }
+        // Token to'g'ri — telefon so'rash
+        askForPhone();
+      }).catch(err => console.error('[bot] tokenStore.get error:', err.message));
+    }
   }
   else if (text === '/start') {
     const message = `👋 Salom, *Milano Foods* xizmatiga xush kelibsiz!\n\nMenyuni ko'rish va buyurtma berish uchun quyidagi tugmani bosing 👇`;
