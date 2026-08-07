@@ -29,6 +29,40 @@ import { CartProvider } from './src/context/CartContext';
 const Tab = createBottomTabNavigator();
 const { width, height } = Dimensions.get('window');
 
+// ==================== ERROR BOUNDARY ====================
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary] Crash caught:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#1A1A1A', justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>Xatolik yuz berdi</Text>
+          <Text style={{ color: '#AAAAAA', fontSize: 14, textAlign: 'center', marginBottom: 24 }}>
+            {this.state.error?.message || 'Noaniq xatolik'}
+          </Text>
+          <Text
+            onPress={() => this.setState({ hasError: false, error: null })}
+            style={{ color: '#FF4747', fontSize: 16, fontWeight: '700', padding: 12 }}
+          >
+            🔄 Qayta urinish
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const DARK_BG = '#1A1A1A';
 const DARK_SURFACE = '#252525';
 const ACCENT = '#FF4747';
@@ -311,12 +345,14 @@ function TabNavigator() {
           <View style={[StyleSheet.absoluteFill, { backgroundColor: DARK_SURFACE, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }]} />
         ),
         tabBarIcon: ({ color, focused }) => {
-          let IconComponent;
-          if (route.name === 'Asosiy') IconComponent = Home;
-          else if (route.name === 'Katalog') IconComponent = List;
-          else if (route.name === 'Savat') IconComponent = ShoppingCart;
-          else if (route.name === 'Profil') IconComponent = User;
-          else if (route.name === 'Yana') IconComponent = MenuIcon;
+          const iconMap = {
+            'Asosiy': Home,
+            'Katalog': List,
+            'Savat': ShoppingCart,
+            'Profil': User,
+            'Yana': MenuIcon,
+          };
+          const IconComponent = iconMap[route.name] || Home;
           return (
             <IconComponent color={focused ? ACCENT : INACTIVE_COLOR} size={22} strokeWidth={focused ? 2.5 : 2} />
           );
@@ -362,14 +398,16 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <CartProvider>
-        <NavigationContainer>
-          <TabNavigator />
-        </NavigationContainer>
-      </CartProvider>
-      <Modal 
-        visible={showSplash} 
-        transparent={true} 
+      <ErrorBoundary>
+        <CartProvider>
+          <NavigationContainer>
+            <TabNavigator />
+          </NavigationContainer>
+        </CartProvider>
+      </ErrorBoundary>
+      <Modal
+        visible={showSplash}
+        transparent={true}
         animationType="none"
         statusBarTranslucent={true}
       >

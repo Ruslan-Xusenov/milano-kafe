@@ -320,10 +320,11 @@ export default function CatalogScreen({ route }) {
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.gridContainer}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={8}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        removeClippedSubviews={true}
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={3}
+        updateCellsBatchingPeriod={100}
+        removeClippedSubviews={false}
         getItemLayout={undefined}
       />
 
