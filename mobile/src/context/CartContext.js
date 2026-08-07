@@ -16,36 +16,46 @@ Notifications.setNotificationHandler({
 async function registerForPushNotificationsAsync() {
   let token;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') {
+        console.log('Failed to get push token for push notification!');
+        return;
+      }
+      try {
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: 'b0e0db14-23bd-47a3-baf0-64d7c0f135b9',
+        });
+        token = tokenData?.data;
+      } catch (e) {
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync();
+          token = tokenData?.data;
+        } catch (e2) {
+          console.log('Push token unavailable:', e2?.message);
+        }
+      }
+      if (token) console.log("Expo Push Token:", token);
+    } else {
+      console.log('Must use physical device for Push Notifications');
     }
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
-      return;
-    }
-    try {
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId: 'b0e0db14-23bd-47a3-baf0-64d7c0f135b9',
-      })).data;
-    } catch (e) {
-      token = (await Notifications.getExpoPushTokenAsync()).data;
-    }
-    console.log("Expo Push Token:", token);
-  } else {
-    console.log('Must use physical device for Push Notifications');
+  } catch (err) {
+    console.log('Push notification setup error:', err?.message);
   }
 
   return token;
@@ -70,7 +80,14 @@ export const CartProvider = ({ children }) => {
           AsyncStorage.getItem('kafe_user'),
           AsyncStorage.getItem('kafe_address')
         ]);
-        if (storedUser) setUser(JSON.parse(storedUser));
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch (parseErr) {
+            console.error('User data parse error, resetting:', parseErr);
+            await AsyncStorage.removeItem('kafe_user');
+          }
+        }
         if (storedAddress) setAddress(storedAddress);
       } catch (err) {
         console.error("Storage load error:", err);
@@ -129,13 +146,17 @@ export const CartProvider = ({ children }) => {
   }, []);
 
   const updateQuantity = useCallback((id, delta) => {
-    setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
-        const newQuantity = item.quantity + delta;
-        return newQuantity > 0 ? { ...item, quantity: newQuantity } : item;
-      }
-      return item;
-    }).filter(item => item.quantity > 0));
+    setCartItems(prev => {
+      const updated = prev.map(item => {
+        if (item.id === id) {
+          const newQuantity = item.quantity + delta;
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      });
+      // Remove items with quantity <= 0
+      return updated.filter(item => item.quantity > 0);
+    });
   }, []);
 
   const getTotal = useCallback(() => cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0), [cartItems]);

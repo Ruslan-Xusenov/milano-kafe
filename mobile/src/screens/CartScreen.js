@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Image, TextInput, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, TextInput, Switch, ActivityIndicator } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Plus, Minus, Trash2, MapPin } from 'lucide-react-native';
 import { CartContext } from '../context/CartContext';
 import { api } from '../api';
@@ -121,10 +122,12 @@ export default function CartScreen({ navigation }) {
           <View key={item.id} style={styles.cartItem}>
             <View style={styles.itemImageWrap}>
               {item.emoji?.startsWith('http') ? (
-                <Image
+                <ExpoImage
                   source={{ uri: item.emoji }}
-                  style={{ width: '100%', height: 70, borderRadius: 14, resizeMode: 'cover' }}
-                  fadeDuration={0}
+                  style={{ width: '100%', height: 70, borderRadius: 14 }}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={150}
                 />
               ) : (
                 <Text style={styles.itemEmoji}>{item.emoji}</Text>

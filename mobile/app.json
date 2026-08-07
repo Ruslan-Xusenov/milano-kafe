@@ -24,7 +24,8 @@
       "favicon": "./assets/milano_icon_512.png"
     },
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-image"
     ]
   }
 }

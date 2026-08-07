@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Platform, TextInput, FlatList } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { Plus, Minus, X, Search } from 'lucide-react-native';
 import { api } from '../api';
 import { CartContext } from '../context/CartContext';
@@ -42,11 +43,12 @@ const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, la
     <TouchableOpacity style={styles.productCard} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.productImageContainer}>
         {item.emoji?.startsWith('http') ? (
-          <Image
+          <ExpoImage
             source={{ uri: item.emoji }}
             style={styles.productImage}
-            resizeMode="cover"
-            fadeDuration={0}
+            contentFit="cover"
+            transition={150}
+            cachePolicy="memory-disk"
           />
         ) : (
           <Text style={styles.productEmoji}>{item.emoji}</Text>
@@ -294,11 +296,12 @@ export default function CatalogScreen({ route }) {
               activeOpacity={0.8}
             >
               {cat.emoji?.startsWith('http') ? (
-                <Image
+                <ExpoImage
                   source={{ uri: cat.emoji }}
                   style={styles.categoryChipImage}
-                  resizeMode="cover"
-                  fadeDuration={0}
+                  contentFit="cover"
+                  transition={150}
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <Text style={styles.categoryChipEmoji}>{cat.emoji}</Text>
@@ -349,11 +352,12 @@ export default function CatalogScreen({ route }) {
                 <ScrollView showsVerticalScrollIndicator={false}>
                   <View style={styles.modalImageContainer}>
                     {selectedProduct.emoji?.startsWith('http') ? (
-                      <Image
+                      <ExpoImage
                         source={{ uri: selectedProduct.emoji }}
                         style={styles.modalProductImage}
-                        resizeMode="cover"
-                        fadeDuration={0}
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
                       />
                     ) : (
                       <Text style={styles.modalEmoji}>{selectedProduct.emoji}</Text>

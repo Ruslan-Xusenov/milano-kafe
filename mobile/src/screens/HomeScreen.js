@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, Dimensions, Animated } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -194,7 +195,13 @@ export default function HomeScreen({ navigation }) {
                   </View>
                   <View style={styles.categoryEmojiWrap}>
                     {cat.emoji && cat.emoji.startsWith('http') ? (
-                      <Image source={{ uri: cat.emoji }} style={styles.categoryImage} resizeMode="contain" />
+                      <ExpoImage
+                        source={{ uri: cat.emoji }}
+                        style={styles.categoryImage}
+                        contentFit="contain"
+                        cachePolicy="memory-disk"
+                        transition={150}
+                      />
                     ) : (
                       <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
                     )}
