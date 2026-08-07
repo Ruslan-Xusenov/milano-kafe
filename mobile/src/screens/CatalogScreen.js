@@ -115,6 +115,10 @@ export default function CatalogScreen({ route }) {
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
+  // Pagination
+  const PAGE_SIZE = 12;
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
   const { t, i18n } = useTranslation();
 
   const { cartItems, addToCart, removeFromCart, updateQuantity } = useContext(CartContext);
@@ -186,6 +190,18 @@ export default function CatalogScreen({ route }) {
     return menuItems;
   }, [menuItems, searchQuery, activeCategory]);
 
+  // Paginated slice — faqat page*PAGE_SIZE ta element ko'rsatiladi
+  const paginatedItems = useMemo(() => {
+    return filteredItems.slice(0, page * PAGE_SIZE);
+  }, [filteredItems, page]);
+
+  const hasMore = paginatedItems.length < filteredItems.length;
+
+  // Kategoriya yoki qidiruv o'zgarganda pagination reset
+  useEffect(() => {
+    setPage(1);
+  }, [activeCategory, searchQuery]);
+
   // Stable callback references for FlatList items
   const handleAddToCart = useCallback((item) => {
     addToCart(item);
@@ -239,6 +255,27 @@ export default function CatalogScreen({ route }) {
   }, [cartQuantityMap, i18n.language, handleSelectProduct, handleAddToCart, handleUpdateQuantityMinus, handleUpdateQuantityPlus]);
 
   const keyExtractor = useCallback((item) => String(item.id), []);
+
+  // Scroll oxiriga yetganda keyingi sahifani yuklash
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    // Bir oz kutib yangi batchni render qilamiz (UI freeze bo'lmasin)
+    setTimeout(() => {
+      setPage(prev => prev + 1);
+      setLoadingMore(false);
+    }, 300);
+  }, [loadingMore, hasMore]);
+
+  // FlatList pastida spinner
+  const renderFooter = useCallback(() => {
+    if (!loadingMore) return null;
+    return (
+      <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+        <ActivityIndicator size="small" color={ACCENT} />
+      </View>
+    );
+  }, [loadingMore]);
 
   if (loading) {
     return (
@@ -314,9 +351,9 @@ export default function CatalogScreen({ route }) {
         </ScrollView>
       </View>
 
-      {/* Menu Grid — FlatList for virtualized rendering */}
+      {/* Menu Grid — paginated FlatList */}
       <FlatList
-        data={filteredItems}
+        data={paginatedItems}
         renderItem={renderProductItem}
         keyExtractor={keyExtractor}
         numColumns={2}
@@ -328,7 +365,9 @@ export default function CatalogScreen({ route }) {
         windowSize={3}
         updateCellsBatchingPeriod={100}
         removeClippedSubviews={false}
-        getItemLayout={undefined}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={renderFooter}
       />
 
       {/* Product Modal */}
