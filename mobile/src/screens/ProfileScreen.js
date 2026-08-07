@@ -1,4 +1,4 @@
-import React, { useContext, useState, useCallback } from 'react';
+import React, { useContext, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal, ScrollView, FlatList } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { User, LogOut, MapPin, Navigation, Star, Edit3, Save, ChevronRight, Globe } from 'lucide-react-native';
@@ -102,19 +102,22 @@ export default function ProfileScreen() {
     }
   };
 
-  // Real-time updates for orders
-  React.useEffect(() => {
-    let interval;
-    if (activeTab === 'buyurtmalar' && user?.isLoggedIn) {
-      fetchOrders(true);
-      interval = setInterval(() => {
-        fetchOrders(false);
-      }, 3000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [activeTab, user]);
+  // Real-time updates for orders — faqat ekran aktiv bo'lganda ishlaydi
+  useFocusEffect(
+    useCallback(() => {
+      let interval;
+      if (activeTab === 'buyurtmalar' && user?.isLoggedIn) {
+        fetchOrders(true);
+        // 3s dan 10s ga oshirildi — batareyani saqlash uchun
+        interval = setInterval(() => {
+          fetchOrders(false);
+        }, 10000);
+      }
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }, [activeTab, user?.isLoggedIn, user?.id])
+  );
 
   const handleSaveProfile = async () => {
     setLoading(true);
