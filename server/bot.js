@@ -92,6 +92,11 @@ bot.on('message', (msg) => {
   }
 });
 
+const escapeMarkdown = (text) => {
+  if (!text) return '';
+  return String(text).replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+};
+
 const sendOrderToTelegram = (order) => {
   if (!chatIds || chatIds.length === 0) {
     console.error('CHAT_ID is not defined in .env');
@@ -101,20 +106,22 @@ const sendOrderToTelegram = (order) => {
   const paymentTypeMap = {
     'naqd': 'Naqd pul',
     'karta': 'Plastik karta',
-    'click': 'Click / Payme'
+    'click': 'Click / Payme',
+    'sovga': "Sovg'a"
   };
   const paymentType = paymentTypeMap[order.payment_method] || 'Naqd pul';
 
-  const itemsText = order.items.map(item => `- ${item.name} x${item.quantity} (${item.price.toLocaleString()} so'm)`).join('\n');
-  const commentText = order.comment ? `\n📝 Izoh: ${order.comment}\n` : '';
-  const message = `🔔 **YANGI BUYURTMA #${order.id}**\n\n` +
-                  `👤 Mijoz: ${order.customer_name}\n` +
-                  `📞 Telefon: ${order.phone}\n` +
-                  `📍 Yetkazib berish manzili: ${order.address}\n` +
-                  `💳 To'lov turi: ${paymentType}\n` +
+  const items = Array.isArray(order.items) ? order.items : [];
+  const itemsText = items.map(item => `- ${escapeMarkdown(item.name)} x${item.quantity} (${(item.price || 0).toLocaleString()} so'm)`).join('\n');
+  const commentText = order.comment ? `\n📝 Izoh: ${escapeMarkdown(order.comment)}\n` : '';
+  const message = `🔔 *YANGI BUYURTMA #${order.id}*\n\n` +
+                  `👤 Mijoz: ${escapeMarkdown(order.customer_name)}\n` +
+                  `📞 Telefon: ${escapeMarkdown(order.phone)}\n` +
+                  `📍 Yetkazib berish manzili: ${escapeMarkdown(order.address)}\n` +
+                  `💳 To'lov turi: ${escapeMarkdown(paymentType)}\n` +
                   commentText + `\n` +
                   `🛒 Buyurtmalar:\n${itemsText}\n\n` +
-                  `💰 Jami: ${order.total.toLocaleString()} so'm\n\n` +
+                  `💰 Jami: ${(order.total || 0).toLocaleString()} so'm\n\n` +
                   `🌐 Admin paneldan tasdiqlang.`;
 
   chatIds.forEach(id => {
@@ -134,7 +141,7 @@ const sendStatusUpdateToTelegram = (orderId, newStatus) => {
   };
 
   const statusText = statusMap[newStatus] || newStatus;
-  const message = `🔄 **Buyurtma #${orderId} holati o'zgardi**\n\nHolat: ${statusText}`;
+  const message = `🔄 *Buyurtma #${orderId} holati o'zgardi*\n\nHolat: ${escapeMarkdown(statusText)}`;
 
   chatIds.forEach(id => {
     bot.sendMessage(id, message, { parse_mode: 'Markdown' })
@@ -143,7 +150,7 @@ const sendStatusUpdateToTelegram = (orderId, newStatus) => {
 };
 
 const sendSecurityAlertToUser = (telegram_id, { device, os, location, time }) => {
-  const message = `🚨 **XAVFSIZLIK OGOHLANTIRISHI**\n\nHurmatli foydalanuvchi, sizning hisobingizga yangi kirish aniqlandi!\n\n📱 Qurilma: ${device} (${os})\n📍 Yetkazib berish manzili (Kirish joyi): ${location}\n🕒 Vaqt: ${time}\n\nAgar bu siz bo'lmasangiz, darhol admin bilan bog'laning.`;
+  const message = `🚨 *XAVFSIZLIK OGOHLANTIRISHI*\n\nHurmatli foydalanuvchi, sizning hisobingizga yangi kirish aniqlandi!\n\n📱 Qurilma: ${escapeMarkdown(device)} (${escapeMarkdown(os)})\n📍 Yetkazib berish manzili (Kirish joyi): ${escapeMarkdown(location)}\n🕒 Vaqt: ${escapeMarkdown(time)}\n\nAgar bu siz bo'lmasangiz, darhol admin bilan bog'laning.`;
   
   bot.sendMessage(telegram_id, message, { parse_mode: 'Markdown' })
     .catch(err => console.error('[bot] Xavfsizlik xabarini yuborishda xato:', err.message));

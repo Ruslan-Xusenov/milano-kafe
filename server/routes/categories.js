@@ -61,4 +61,23 @@ router.patch('/:id/toggle-available', (req, res) => {
   });
 });
 
+// Kategoriyadagi barcha mahsulotlarga chegirma o'rnatish
+router.patch('/:id/discount', (req, res) => {
+  const { discount_percent } = req.body;
+  const pct = parseInt(discount_percent, 10);
+  if (isNaN(pct) || pct < 0 || pct > 99) {
+    return res.status(400).json({ error: 'discount_percent 0-99 orasida bo\'lishi kerak' });
+  }
+  
+  db.get('SELECT name FROM categories WHERE id=?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Kategoriya topilmadi' });
+    
+    db.run('UPDATE menu_items SET discount_percent=? WHERE category=?', [pct, row.name], function (err2) {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json({ success: true, updated_count: this.changes, discount_percent: pct });
+    });
+  });
+});
+
 module.exports = router;

@@ -1,7 +1,7 @@
-import React, { useContext, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal, ScrollView, FlatList } from 'react-native';
+import React, { useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Platform, Modal, ScrollView, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { User, LogOut, MapPin, Navigation, Star, Edit3, Save, ChevronRight, Globe } from 'lucide-react-native';
+import { LogOut, MapPin, Navigation, Star, Edit3, Trash2 } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import * as Device from 'expo-device';
 import { CartContext } from '../context/CartContext';
@@ -24,21 +24,15 @@ export default function ProfileScreen() {
   const { user, login, logout, address, setAddress, updateUser } = useContext(CartContext);
   const { t, i18n } = useTranslation();
   
-  // Auth states
-  const [isLogin, setIsLogin] = useState(true);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('+998');
+  // Auth states (Telegram-only authentication)
+  const [telegramCode, setTelegramCode] = useState('');
+  const [botUsername, setBotUsername] = useState('BoomBurgerZar_bot');
+  const codeInputRef = useRef(null);
   
   // App states
   const [tempAddress, setTempAddress] = useState(address);
   const [locating, setLocating] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // Telegram Flow
-  const [telegramFlowStep, setTelegramFlowStep] = useState(0);
-  const [telegramCode, setTelegramCode] = useState('');
 
   // Profile Tabs & Editing
   const [activeTab, setActiveTab] = useState('profil');
@@ -46,7 +40,6 @@ export default function ProfileScreen() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
-  const [editEmail, setEditEmail] = useState('');
   const [editBirthday, setEditBirthday] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [birthdayPickerVisible, setBirthdayPickerVisible] = useState(false);
@@ -65,7 +58,6 @@ export default function ProfileScreen() {
     if (user?.isLoggedIn) {
       setEditName(user.name || '');
       setEditPhone(user.phone || '');
-      setEditEmail(user.email || '');
       setEditBirthday(user.birthday ? user.birthday.split('T')[0] : '');
       if (user.birthday) {
         const d = new Date(user.birthday);
@@ -126,7 +118,7 @@ export default function ProfileScreen() {
         id: user.id,
         name: editName,
         phone: editPhone,
-        email: editEmail,
+        email: user.email || null,
         birthday: editBirthday || null
       });
       login(res.data, user.token);
@@ -204,60 +196,74 @@ export default function ProfileScreen() {
     }
   };
 
-  const handlePhoneChange = (text) => {
-    let cleaned = text.replace(/[^\d+]/g, '');
-    if (!cleaned.startsWith('+998')) cleaned = '+998';
-    if (cleaned.length > 13) cleaned = cleaned.substring(0, 13);
-    setPhone(cleaned);
-  };
+  useEffect(() => {
+    api.get('/config')
+      .then(res => {
+        if (res.data?.bot_username) {
+          setBotUsername(res.data.bot_username);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const changeLanguage = async (lng) => {
     await i18n.changeLanguage(lng);
     await AsyncStorage.setItem('appLanguage', lng);
   };
 
-  const handleAuth = async () => {
-    if (!email || !password || (!isLogin && !name)) {
-      Alert.alert(t('error', "Xatolik"), t('fill_all_fields', "Iltimos, barcha maydonlarni to'ldiring"));
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      const endpoint = isLogin ? '/auth/client/login' : '/auth/client/register';
-      const payload = isLogin ? { email, password } : { name, email, password };
-      
-      const res = await api.post(endpoint, payload);
-      login(res.data.user, res.data.token);
-    } catch (err) {
-      Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('general_error', "Xatolik yuz berdi"));
-    } finally {
-      setLoading(false);
-    }
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      t('delete_account_title', "Hisobni o'chirish"),
+      t('delete_account_confirm', "Haqiqatan ham akkauntingizni o'chirmoqchimisiz? Barcha shaxsiy ma'lumotlaringiz butunlay o'chiriladi."),
+      [
+        { text: t('cancel', "Bekor qilish"), style: 'cancel' },
+        {
+          text: t('delete', "O'chirish"),
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await api.delete('/auth/client/account');
+              logout();
+              Alert.alert(t('success', "Muvaffaqiyatli"), t('account_deleted', "Akkauntingiz muvaffaqiyatli o'chirildi"));
+            } catch (err) {
+              Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('delete_account_error', "Akkauntni o'chirishda xatolik yuz berdi"));
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
-  const handleSocialAuth = async (provider) => {
-    if (provider === 'Google') {
-      Alert.alert(t('soon', "Tez orada"), t('google_login_disabled', "Google orqali kirish vaqtinchalik o'chirilgan."));
-    } else if (provider === 'Telegram') {
-      setTelegramFlowStep(1);
-    } else {
-      Alert.alert(t('soon', "Tez orada"), `${provider} ` + t('login_soon', "orqali kirish tez orada ishga tushadi!"));
-    }
-  };
-  
-  const handleTelegramContinue = () => {
-    const botUrl = `https://t.me/BoomBurgerZar_bot?start=login`;
+  const handleTelegramContinue = async () => {
+    const botUrl = `https://t.me/${botUsername}?start=login`;
     if (Platform.OS === 'web') {
       window.open(botUrl, '_blank');
     } else {
-      import('react-native').then(({ Linking }) => Linking.openURL(botUrl));
+      try {
+        const supported = await Linking.canOpenURL(botUrl);
+        if (supported) {
+          await Linking.openURL(botUrl);
+        } else {
+          await Linking.openURL(`https://t.me/${botUsername}`);
+        }
+      } catch {
+        Linking.openURL(botUrl).catch(() => {
+          Alert.alert(t('error', "Xatolik"), t('telegram_open_error', "Telegram ilovasini ochib bo'lmadi"));
+        });
+      }
     }
-    setTelegramFlowStep(2);
+    setTimeout(() => {
+      codeInputRef.current?.focus();
+    }, 400);
   };
   
-  const handleTelegramVerify = async () => {
-    if (!telegramCode || telegramCode.length !== 6) {
+  const handleTelegramVerify = useCallback(async () => {
+    const code = telegramCode.trim();
+    if (!code || code.length !== 6) {
+      Alert.alert(t('error', "Xatolik"), t('enter_bot_code', "Bot bergan 6 xonali kodni kiriting"));
       return;
     }
     setLoading(true);
@@ -267,7 +273,7 @@ export default function ProfileScreen() {
       const time = formatDate(new Date());
       
       const res = await api.post('/auth/client/telegram/verify', {
-        code: telegramCode.trim(),
+        code,
         device,
         os,
         location: tempAddress || 'Aniqlanmadi',
@@ -276,20 +282,20 @@ export default function ProfileScreen() {
       
       if (res.data.status === 'success') {
         login(res.data.user, res.data.token);
-        setTelegramFlowStep(0);
+        setTelegramCode('');
       }
     } catch (err) {
       Alert.alert(t('error', "Xatolik"), err.response?.data?.error || t('code_invalid', "Kod xato yoki tasdiqlanmadi"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [telegramCode, tempAddress, login, t]);
 
-  React.useEffect(() => {
-    if (telegramCode.length === 6) {
+  useEffect(() => {
+    if (telegramCode.trim().length === 6) {
       handleTelegramVerify();
     }
-  }, [telegramCode]);
+  }, [telegramCode, handleTelegramVerify]);
 
   const fetchLocation = async () => {
     setLocating(true);
@@ -339,58 +345,20 @@ export default function ProfileScreen() {
 
   // ============== AUTH SCREENS ==============
   if (!user?.isLoggedIn) {
-    if (telegramFlowStep > 0) {
-      return (
-        <View style={[styles.authContainer, { backgroundColor: '#1A1A1A' }]}>
-          <View style={styles.authHeader}>
-            <View style={styles.authIconWrap}>
-              <Navigation size={28} color="#3B82F6" />
-            </View>
-            <Text style={styles.authTitle}>{t('login_telegram', 'Telegram orqali kirish')}</Text>
-            <Text style={styles.authSubtitle}>
-              {telegramFlowStep === 1 
-                ? t('enter_phone_bot', "Telefon raqamingizni kiriting va botga o'ting") 
-                : t('enter_bot_code', "Bot bergan 6 xonali kodni kiriting")}
-            </Text>
-          </View>
-          <View style={styles.authForm}>
-            {telegramFlowStep === 1 ? (
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleTelegramContinue} activeOpacity={0.8}>
-                <Text style={styles.primaryBtnText}>{t('continue_bot', "Davom etish (Botni ochish)")}</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <TextInput 
-                  style={[styles.authInput, { textAlign: 'center', fontSize: 28, letterSpacing: 8, fontWeight: '900' }]}
-                  value={telegramCode}
-                  onChangeText={setTelegramCode}
-                  keyboardType="number-pad"
-                  placeholder="------"
-                  maxLength={6}
-                  placeholderTextColor="#555555"
-                />
-                <TouchableOpacity style={styles.primaryBtn} onPress={handleTelegramVerify} disabled={loading} activeOpacity={0.8}>
-                  {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>{t('confirm_login', 'Tasdiqlash va Kirish')}</Text>}
-                </TouchableOpacity>
-              </>
-            )}
-            <TouchableOpacity onPress={() => setTelegramFlowStep(0)} style={{ marginTop: 24, alignItems: 'center' }}>
-              <Text style={styles.toggleLink}>{t('go_back', 'Orqaga qaytish')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      );
-    }
-
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: '#1A1A1A' }} contentContainerStyle={styles.authContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: '#1A1A1A' }} 
+        contentContainerStyle={styles.authContainer} 
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.authHeader}>
           <View style={styles.authIconWrap}>
-            <User size={28} color="#FF4747" />
+            <Navigation size={30} color="#229ED9" />
           </View>
-          <Text style={styles.authTitle}>{isLogin ? t('login_title', "Tizimga kirish") : t('register', "Ro'yxatdan o'tish")}</Text>
+          <Text style={styles.authTitle}>{t('register_via_telegram', "Telegram orqali ro'yxatdan o'tish")}</Text>
           <Text style={styles.authSubtitle}>
-            {isLogin ? t('login_desc', "Ma'lumotlaringizni kiritib profilingizga kiring") : t('register_desc', "Yangi profil yarating va buyurtma bering")}
+            {t('telegram_auth_subtitle', "Ro'yxatdan o'tish va tizimga kirish uchun Telegram botimizdan foydalaning")}
           </Text>
           
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
@@ -410,61 +378,52 @@ export default function ProfileScreen() {
         </View>
         
         <View style={styles.authForm}>
-          {!isLogin && (
-            <TextInput 
-              style={styles.authInput}
-              value={name}
-              onChangeText={setName}
-              placeholder={t('name_placeholder', "Ismingiz")}
-              placeholderTextColor="#555555"
-            />
-          )}
-          
-          <TextInput 
-            style={styles.authInput}
-            value={email}
-            onChangeText={setEmail}
-            placeholder={t('email_placeholder', "Email manzil yoki Telefon raqam")}
-            placeholderTextColor="#555555"
-            autoCapitalize="none"
-          />
-          
-          <TextInput 
-            style={styles.authInput}
-            value={password}
-            onChangeText={setPassword}
-            placeholder={t('password', "Parol")}
-            placeholderTextColor="#555555"
-            secureTextEntry
-          />
-          
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleAuth} disabled={loading} activeOpacity={0.8}>
-            {loading ? <ActivityIndicator color="#FFF2E1" /> : <Text style={styles.primaryBtnText}>{isLogin ? t('login_button', "Kirish") : t('register', "Ro'yxatdan o'tish")}</Text>}
+          <TouchableOpacity 
+            style={[styles.telegramBtn, loading && { opacity: 0.7 }]} 
+            onPress={handleTelegramContinue} 
+            activeOpacity={0.8}
+          >
+            <Navigation size={22} color="#FFFFFF" />
+            <Text style={styles.telegramBtnText}>{t('open_telegram_bot_btn', "Telegram bot orqali ro'yxatdan o'tish")}</Text>
           </TouchableOpacity>
-          
-          <View style={styles.toggleContainer}>
-            <Text style={styles.toggleText}>{isLogin ? t('no_account', "Akkauntingiz yo'qmi?") : t('has_account', "Akkauntingiz bormi?")}</Text>
-            <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-              <Text style={styles.toggleLink}>{isLogin ? t('register', "Ro'yxatdan o'tish") : t('login_title', "Tizimga kirish")}</Text>
-            </TouchableOpacity>
+
+          <Text style={styles.authStepHint}>
+            {t('telegram_step_instructions', "1. Botga o'tib telefon raqamingizni tasdiqlang\n2. Bot yuborgan 6 xonali kodni quyida kiriting")}
+          </Text>
+
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('enter_bot_code_title', 'TASDIQLASH KODI')}</Text>
+            <View style={styles.dividerLine} />
           </View>
-        </View>
 
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>{t('or_via', 'Yoki quyidagilar orqali')}</Text>
-          <View style={styles.dividerLine} />
-        </View>
+          <TextInput 
+            ref={codeInputRef}
+            style={styles.codeInput}
+            value={telegramCode}
+            onChangeText={(text) => setTelegramCode(text.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            placeholder="------"
+            maxLength={6}
+            placeholderTextColor="#444444"
+          />
 
-        <View style={styles.socialContainer}>
-          <TouchableOpacity style={styles.socialBtn} onPress={() => handleSocialAuth('Google')} activeOpacity={0.7}>
-            <Text style={styles.socialIcon}>G</Text>
-            <Text style={styles.socialBtnText}>Google</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.socialBtn, { backgroundColor: 'rgba(59,130,246,0.08)', borderColor: 'rgba(59,130,246,0.2)' }]} onPress={() => handleSocialAuth('Telegram')} activeOpacity={0.7}>
-            <Navigation size={18} color="#3B82F6" />
-            <Text style={[styles.socialBtnText, { color: '#3B82F6' }]}>Telegram</Text>
+          <TouchableOpacity 
+            style={[
+              styles.primaryBtn, 
+              telegramCode.length === 6 ? styles.primaryBtnActive : styles.primaryBtnInactive
+            ]} 
+            onPress={handleTelegramVerify} 
+            disabled={loading} 
+            activeOpacity={0.8}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={[styles.primaryBtnText, telegramCode.length !== 6 && { color: '#888888' }]}>
+                {t('confirm_login', 'Tasdiqlash va Kirish')}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -510,7 +469,6 @@ export default function ProfileScreen() {
                   <>
                     <TextInput style={styles.editInput} value={editName} onChangeText={setEditName} placeholder={t('name_placeholder', "Ism")} placeholderTextColor="#555555" />
                     <TextInput style={styles.editInput} value={editPhone} onChangeText={setEditPhone} placeholder={t('phone', "Telefon raqam")} keyboardType="phone-pad" placeholderTextColor="#555555" />
-                    <TextInput style={styles.editInput} value={editEmail} onChangeText={setEditEmail} placeholder={t('email_placeholder', "Email")} keyboardType="email-address" autoCapitalize="none" placeholderTextColor="#555555" />
                     {/* Birthday Picker Button */}
                     <TouchableOpacity style={styles.birthdayPickerBtn} onPress={openBirthdayPicker} activeOpacity={0.8}>
                       <Text style={styles.birthdayPickerIcon}>🎂</Text>
@@ -531,7 +489,6 @@ export default function ProfileScreen() {
                   <>
                     <Text style={styles.userName}>{user.name || t('guest', 'Mijoz')}</Text>
                     <Text style={styles.userInfo}>{user.phone || t('not_entered', 'Kiritilmagan')}</Text>
-                    <Text style={styles.userInfo}>{user.email || t('not_entered', 'Kiritilmagan')}</Text>
                     {user.birthday && (
                       <View style={styles.birthdayRow}>
                         <Text style={styles.birthdayIcon}>🎂</Text>
@@ -604,6 +561,11 @@ export default function ProfileScreen() {
               <LogOut size={20} color="#FF4747" />
               <Text style={styles.logoutBtnText}>{t('logout', 'Tizimdan chiqish')}</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.deleteAccountBtn} onPress={handleDeleteAccount} activeOpacity={0.8}>
+              <Trash2 size={16} color="#777777" />
+              <Text style={styles.deleteAccountBtnText}>{t('delete_account', "Hisobni o'chirish")}</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.content}>
@@ -659,7 +621,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* Rating Modal */}
-      <Modal visible={ratingModalVisible} transparent animationType="slide">
+      <Modal visible={ratingModalVisible} transparent animationType="slide" onRequestClose={() => setRatingModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setRatingModalVisible(false)} activeOpacity={1} />
           <View style={styles.modalContent}>
@@ -702,7 +664,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Birthday Picker Modal */}
-      <Modal visible={birthdayPickerVisible} transparent animationType="slide">
+      <Modal visible={birthdayPickerVisible} transparent animationType="slide" onRequestClose={() => setBirthdayPickerVisible(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBackdrop} onPress={() => setBirthdayPickerVisible(false)} activeOpacity={1} />
           <View style={[styles.modalContent, { paddingBottom: 30 }]}>
@@ -798,26 +760,57 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   // Auth styles
   authContainer: { flexGrow: 1, backgroundColor: '#1A1A1A', padding: 24, justifyContent: 'center' },
-  authHeader: { alignItems: 'center', marginBottom: 32 },
-  authIconWrap: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,71,71,0.12)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,71,71,0.2)' },
-  authTitle: { fontSize: 28, fontWeight: '900', color: '#FFFFFF', marginBottom: 8, letterSpacing: -0.5, textAlign: 'center' },
-  authSubtitle: { fontSize: 15, color: '#AAAAAA', fontWeight: '500', textAlign: 'center', lineHeight: 22 },
-  authForm: { marginBottom: 24 },
-  authInput: { backgroundColor: '#252525', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, marginBottom: 14, fontSize: 16, color: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', fontWeight: '500' },
-  primaryBtn: { backgroundColor: '#FF4747', padding: 18, borderRadius: 18, alignItems: 'center', marginTop: 8, shadowColor: '#FF4747', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
-  primaryBtnText: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
-  toggleContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
-  toggleText: { color: '#AAAAAA', fontSize: 14 },
-  toggleLink: { color: '#FF4747', fontSize: 14, fontWeight: 'bold', marginLeft: 6 },
-  
-  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  authHeader: { alignItems: 'center', marginBottom: 28 },
+  authIconWrap: { width: 68, height: 68, borderRadius: 34, backgroundColor: 'rgba(34,158,217,0.12)', justifyContent: 'center', alignItems: 'center', marginBottom: 18, borderWidth: 1.5, borderColor: 'rgba(34,158,217,0.25)' },
+  authTitle: { fontSize: 26, fontWeight: '900', color: '#FFFFFF', marginBottom: 8, letterSpacing: -0.5, textAlign: 'center' },
+  authSubtitle: { fontSize: 14, color: '#AAAAAA', fontWeight: '500', textAlign: 'center', lineHeight: 21, paddingHorizontal: 12 },
+  authForm: { marginBottom: 20 },
+  telegramBtn: {
+    backgroundColor: '#229ED9',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    shadowColor: '#229ED9',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  telegramBtnText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  authStepHint: {
+    fontSize: 13,
+    color: '#888888',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 22,
+    lineHeight: 19,
+    fontWeight: '500',
+  },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
-  dividerText: { marginHorizontal: 16, color: '#AAAAAA', fontWeight: '600', fontSize: 13 },
-  
-  socialContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, gap: 12 },
-  socialBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#252525', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', gap: 8 },
-  socialIcon: { fontSize: 18, fontWeight: 'bold', color: '#DB4437' },
-  socialBtnText: { fontSize: 15, fontWeight: '700', color: '#AAAAAA' },
+  dividerText: { marginHorizontal: 14, color: '#666666', fontWeight: '800', fontSize: 12, letterSpacing: 1 },
+  codeInput: {
+    backgroundColor: '#252525',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    fontSize: 28,
+    color: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(34, 158, 217, 0.35)',
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 10,
+  },
+  primaryBtn: { backgroundColor: '#FF4747', padding: 18, borderRadius: 18, alignItems: 'center', shadowColor: '#FF4747', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6 },
+  primaryBtnActive: { backgroundColor: '#FF4747' },
+  primaryBtnInactive: { backgroundColor: '#2E2E2E', shadowOpacity: 0, elevation: 0, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  primaryBtnText: { fontSize: 17, fontWeight: '900', color: '#FFFFFF' },
 
   // Logged-in styles
   container: { flex: 1, backgroundColor: '#1A1A1A' },
@@ -928,4 +921,11 @@ const styles = StyleSheet.create({
   },
   pickerItemText: { fontSize: 15, fontWeight: '600', color: '#666666' },
   pickerItemTextActive: { color: '#FF4747', fontWeight: '800' },
+  deleteAccountBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, marginTop: 8, marginBottom: 20
+  },
+  deleteAccountBtnText: {
+    fontSize: 13, fontWeight: '500', color: '#777777'
+  }
 });

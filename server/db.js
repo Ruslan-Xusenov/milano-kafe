@@ -45,6 +45,7 @@ const db = {
       if (isInsert && result.rows && result.rows.length > 0) {
         context.lastID = result.rows[0].id;
       }
+      context.changes = result ? result.rowCount : 0;
       if (callback) callback.call(context, null);
     });
   },
@@ -122,6 +123,7 @@ const db = {
           return client.query(pgSql, params).then(result => {
             const ctx = {};
             if (isInsert && result.rows && result.rows.length > 0) ctx.lastID = result.rows[0].id;
+            ctx.changes = result ? result.rowCount : 0;
             if (callback) callback.call(ctx, null);
             return ctx;
           }).catch(err => {

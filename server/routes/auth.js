@@ -52,11 +52,20 @@ router.post('/client/register', async (req, res) => {
     return res.status(400).json({ error: "Barcha maydonlarni to'ldiring" });
   }
 
+  if (typeof password !== 'string' || password.length < 6) {
+    return res.status(400).json({ error: "Parol kamida 6 ta belgidan iborat bo'lishi kerak" });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email.trim())) {
+    return res.status(400).json({ error: "Email formati noto'g'ri" });
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const sql = `INSERT INTO users (name, email, phone, password) VALUES (?, ?, ?, ?)`;
 
-    db.run(sql, [name, email, phone || null, hashedPassword], function (err) {
+    db.run(sql, [name.trim(), email.trim().toLowerCase(), phone ? phone.trim() : null, hashedPassword], function (err) {
       if (err) {
         if (err.message.includes('UNIQUE constraint failed: users.email') || err.message.includes('users_email')) {
           return res.status(400).json({ error: "Bu email avval ro'yxatdan o'tgan" });
@@ -282,9 +291,10 @@ router.put('/client/update', requireAnyAuth, (req, res) => {
     return res.status(403).json({ error: 'Ruxsat yo\'q' });
   }
 
+  const finalEmail = email !== undefined ? email : (req.user?.email || null);
   db.run(
-    'UPDATE users SET name = ?, phone = ?, email = ?, birthday = ? WHERE id = ?',
-    [name, phone, email, birthday || null, id],
+    'UPDATE users SET name = ?, phone = ?, email = COALESCE(?, email), birthday = ? WHERE id = ?',
+    [name, phone, finalEmail, birthday || null, id],
     function (err) {
       if (err) {
         if (err.message.includes('UNIQUE constraint failed: users.email') || err.message.includes('users_email')) {
@@ -316,6 +326,24 @@ router.get('/client/me/:id', requireAnyAuth, (req, res) => {
     const { password: _, ...userData } = user;
     res.json(userData);
   });
+});
+
+// Google Play Account Deletion — Mijoz akkauntini va shaxsiy ma'lumotlarini o'chirish
+router.delete('/client/account', requireAnyAuth, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Foydalanuvchining bildirishnomalarini tozalash
+      await tx.run('DELETE FROM notifications WHERE user_id = ?', [userId]);
+      // 2. Buyurtmalar tarixidagi shaxsiy bog'lanishni anonimlashtirish
+      await tx.run('UPDATE orders SET user_id = NULL WHERE user_id = ?', [userId]);
+      // 3. Foydalanuvchi akkauntini o'chirish
+      await tx.run('DELETE FROM users WHERE id = ?', [userId]);
+    });
+    res.json({ success: true, message: "Akkaunt va shaxsiy ma'lumotlar muvaffaqiyatli o'chirildi" });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Akkauntni o'chirishda xatolik yuz berdi" });
+  }
 });
 
 module.exports = router;

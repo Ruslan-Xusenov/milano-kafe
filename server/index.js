@@ -24,6 +24,8 @@ const staffRouter      = require('./routes/staff');
 const authRouter       = require('./routes/auth');
 const notifRouter      = require('./routes/notifications');
 const analyticsRouter  = require('./routes/analytics');
+const uploadRouter     = require('./routes/upload');
+const path             = require('path');
 
 // --- DB / Bot / Push ---
 const db = require('./db');
@@ -35,6 +37,16 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 const app = express();
 app.set('trust proxy', 1);
+
+// --- Security Headers ---
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
@@ -50,6 +62,11 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '100kb' }));
+
+// --- Static files ---
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '7d',
+}));
 
 // ============================================================
 // --- Rate Limiting ---
@@ -127,6 +144,14 @@ app.use('/api/auth/', authLimiter);
 // ============================================================
 // --- PUBLIC / UTILITY ENDPOINTS ---
 // ============================================================
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get('/api/test-ip', (req, res) => {
   res.json({ ip: req.ip, ips: req.ips, xff: req.headers['x-forwarded-for'] });
@@ -239,11 +264,40 @@ menuBase.patch('/:id/discount', requireAdmin, (req, res, next) => { req.url = `/
 app.use('/api/menu', menuBase);
 
 // ============================================================
-// --- CATEGORIES, BANNERS, SETTINGS (public GET) ---
+// --- UPLOAD ---
 // ============================================================
-app.use('/api/categories', categoriesRouter);
-app.use('/api/banners', bannersRouter);
-app.use('/api/settings', settingsRouter);
+app.use('/api/upload', requireAdmin, uploadRouter);
+
+
+// ============================================================
+// --- CATEGORIES (public GET, admin WRITE) ---
+// ============================================================
+const categoriesBase = express.Router();
+categoriesBase.get('/', (req, res, next) => { req.url = '/'; categoriesRouter(req, res, next); });
+categoriesBase.post('/', requireAdmin, (req, res, next) => { req.url = '/'; categoriesRouter(req, res, next); });
+categoriesBase.put('/:id', requireAdmin, (req, res, next) => { req.url = `/${req.params.id}`; categoriesRouter(req, res, next); });
+categoriesBase.delete('/:id', requireAdmin, (req, res, next) => { req.url = `/${req.params.id}`; categoriesRouter(req, res, next); });
+categoriesBase.patch('/:id/toggle-available', requireAdmin, (req, res, next) => { req.url = `/${req.params.id}/toggle-available`; categoriesRouter(req, res, next); });
+categoriesBase.patch('/:id/discount', requireAdmin, (req, res, next) => { req.url = `/${req.params.id}/discount`; categoriesRouter(req, res, next); });
+app.use('/api/categories', categoriesBase);
+
+// ============================================================
+// --- BANNERS (public GET, admin WRITE) ---
+// ============================================================
+const bannersBase = express.Router();
+bannersBase.get('/', (req, res, next) => { req.url = '/'; bannersRouter(req, res, next); });
+bannersBase.post('/', requireAdmin, (req, res, next) => { req.url = '/'; bannersRouter(req, res, next); });
+bannersBase.put('/:id', requireAdmin, (req, res, next) => { req.url = `/${req.params.id}`; bannersRouter(req, res, next); });
+bannersBase.delete('/:id', requireAdmin, (req, res, next) => { req.url = `/${req.params.id}`; bannersRouter(req, res, next); });
+app.use('/api/banners', bannersBase);
+
+// ============================================================
+// --- SETTINGS (public GET, admin WRITE) ---
+// ============================================================
+const settingsBase = express.Router();
+settingsBase.get('/', (req, res, next) => { req.url = '/'; settingsRouter(req, res, next); });
+settingsBase.put('/', requireAdmin, (req, res, next) => { req.url = '/'; settingsRouter(req, res, next); });
+app.use('/api/settings', settingsBase);
 
 // ============================================================
 // --- INVENTORY (staff GET, admin WRITE) ---
@@ -321,6 +375,19 @@ async function runStartupMigrations() {
         resolve();
       }
     );
+  });
+
+  // Performance indekslari — orders va notifications
+  await new Promise((resolve) => {
+    db.run('CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id)', [], () => {
+      db.run('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)', [], () => {
+        db.run('CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC)', [], () => {
+          db.run('CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)', [], () => {
+            resolve();
+          });
+        });
+      });
+    });
   });
 }
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
-import { Info, PhoneCall, X, ChevronRight } from 'lucide-react-native';
+import { Info, PhoneCall, X, ChevronRight, HelpCircle } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { API_URL } from '../api';
+import OnboardingModal from '../components/OnboardingModal';
 
 const DARK_BG = '#1A1A1A';
 const DARK_CARD = '#252525';
@@ -18,6 +19,7 @@ export default function MoreScreen() {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [guideModalVisible, setGuideModalVisible] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
   const [modalContent, setModalContent] = useState('');
 
@@ -56,6 +58,14 @@ export default function MoreScreen() {
 
         {/* Section: Info */}
         <Text style={styles.sectionLabel}>Ma'lumot</Text>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => setGuideModalVisible(true)} activeOpacity={0.75}>
+          <View style={[styles.iconWrap, { backgroundColor: 'rgba(255, 71, 71, 0.12)' }]}>
+            <HelpCircle color="#FF4747" size={22} />
+          </View>
+          <Text style={styles.menuText}>{t('app_guide', "Ilovadan foydalanish qo'llanmasi")}</Text>
+          <ChevronRight size={18} color="#555555" style={{ marginLeft: 'auto' }} />
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuItem} onPress={() => openModal('about')} activeOpacity={0.75}>
           <View style={[styles.iconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
@@ -108,6 +118,11 @@ export default function MoreScreen() {
           </View>
         </View>
       </Modal>
+
+      <OnboardingModal
+        visible={guideModalVisible}
+        onClose={() => setGuideModalVisible(false)}
+      />
     </View>
   );
 }

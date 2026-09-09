@@ -24,7 +24,9 @@ import CartScreen from './src/screens/CartScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MoreScreen from './src/screens/MoreScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import OnboardingModal from './src/components/OnboardingModal';
 import { CartProvider } from './src/context/CartContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createBottomTabNavigator();
 const { width, height } = Dimensions.get('window');
@@ -206,7 +208,7 @@ function SplashScreen({ onFinish }) {
       opacity: screenOpacity,
       transform: [{ scale: screenScale }],
     }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
+      <StatusBar barStyle="light-content" translucent={true} />
 
       <LinearGradient
         colors={['#0A0A0A', '#161616', '#1A0A0A']}
@@ -395,6 +397,26 @@ function TabNavigator() {
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('has_seen_onboarding_guide')
+      .then((seen) => {
+        if (!seen) {
+          setShowOnboarding(true);
+        }
+      })
+      .catch((err) => console.log('Onboarding check error', err));
+  }, []);
+
+  const handleFinishOnboarding = async () => {
+    setShowOnboarding(false);
+    try {
+      await AsyncStorage.setItem('has_seen_onboarding_guide', 'true');
+    } catch (e) {
+      console.log('Error saving onboarding state', e);
+    }
+  };
 
   return (
     <SafeAreaProvider>
@@ -410,9 +432,15 @@ export default function App() {
         transparent={true}
         animationType="none"
         statusBarTranslucent={true}
+        onRequestClose={() => {}}
       >
         <SplashScreen onFinish={() => setShowSplash(false)} />
       </Modal>
+
+      <OnboardingModal
+        visible={!showSplash && showOnboarding}
+        onClose={handleFinishOnboarding}
+      />
     </SafeAreaProvider>
   );
 }

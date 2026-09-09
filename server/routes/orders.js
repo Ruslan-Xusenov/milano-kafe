@@ -274,8 +274,9 @@ router.put('/:id/status', async (req, res) => {
         try {
           const orderItems = typeof oldOrder.items === 'string' ? JSON.parse(oldOrder.items) : oldOrder.items;
           for (const item of orderItems) {
+            const baseId = item.productId || (typeof item.id === 'string' && item.id.includes('_') ? parseInt(item.id.split('_')[0], 10) : parseInt(item.id, 10));
             const recipes = await tx.all(
-              'SELECT inventory_id, amount FROM recipe_ingredients WHERE menu_item_id = ?', [item.id]
+              'SELECT inventory_id, amount FROM recipe_ingredients WHERE menu_item_id = ?', [baseId]
             );
             for (const recipe of recipes) {
               await tx.run(

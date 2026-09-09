@@ -38,6 +38,7 @@ const MenuManagement = () => {
 
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -151,6 +152,38 @@ const MenuManagement = () => {
       fetchData();
     } catch (e) { console.error(e); }
     finally { setTogglingId(null); }
+  };
+
+  // ---- Image Upload ----
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    const form = new FormData();
+    form.append('image', file);
+
+    try {
+      // Don't use Content-Type header with FormData, fetch sets it automatically with boundary
+      const res = await apiFetch('/api/upload', {
+        method: 'POST',
+        body: form
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFormData(prev => ({ ...prev, emoji: data.url }));
+        if (data.warning) alert(data.warning);
+      } else {
+        const err = await res.json();
+        alert('Yuklashda xatolik: ' + (err.error || 'Noma\'lum xato'));
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Yuklashda xatolik yuz berdi');
+    } finally {
+      setUploadingImage(false);
+      e.target.value = ''; // Reset input
+    }
   };
 
   // ---- Discount ----
@@ -294,11 +327,16 @@ const MenuManagement = () => {
                       <div className="text-xs text-gray-400">{item.name_ru}</div>
                       {item.variants && item.variants.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {item.variants.map((v, idx) => (
-                            <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 text-[11px] px-1.5 py-0.5 rounded font-medium">
-                              {v.name}: {Number(v.price).toLocaleString()}
-                            </span>
-                          ))}
+                          {item.variants.map((v, idx) => {
+                            const discVariantPrice = item.discount_percent > 0 
+                              ? Math.round(Number(v.price) * (1 - item.discount_percent / 100))
+                              : Number(v.price);
+                            return (
+                              <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 text-[11px] px-1.5 py-0.5 rounded font-medium">
+                                {v.name}: {discVariantPrice.toLocaleString()} {item.discount_percent > 0 && <span className="line-through text-[9px] ml-1 text-gray-400">{Number(v.price).toLocaleString()}</span>}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -444,19 +482,41 @@ const MenuManagement = () => {
                     className="w-full p-2 border rounded-lg outline-none focus:border-amber-400" />
                 </div>
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Kategoriya</label>
-                <select value={formData.category}
-                  onChange={e => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full p-2 border rounded-lg outline-none focus:border-amber-400">
-                  <option value="">Tanlang...</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Kategoriya</label>
+                  <select value={formData.category}
+                    onChange={e => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full p-2 border rounded-lg outline-none focus:border-amber-400">
+                    <option value="">Tanlang...</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Rasm yuklash (Avto-fon qirqish)</label>
+                  <div className="relative">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" 
+                    />
+                    <div className={`w-full p-2 border rounded-lg flex items-center justify-center gap-2 ${uploadingImage ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'} transition-colors`}>
+                      {uploadingImage ? (
+                        <><div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div><span className="text-sm text-amber-700">Qirqilmoqda...</span></>
+                      ) : (
+                        <><Plus className="w-4 h-4 text-gray-500" /><span className="text-sm text-gray-600">Qurilmadan tanlash</span></>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
+              
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Emoji yoki Rasm URL *</label>
+                <label className="block text-sm text-gray-600 mb-1">Yoki Emoji / URL kiriting (ixtiyoriy)</label>
                 <input required type="text" value={formData.emoji}
                   onChange={e => setFormData({ ...formData, emoji: e.target.value })}
                   placeholder="🍔 yoki https://..."

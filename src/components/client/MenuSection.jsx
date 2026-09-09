@@ -11,7 +11,9 @@ const MenuSection = ({ menuItems, categories, activeCategory, searchQuery, addTo
   const { t, i18n } = useTranslation();
 
   const filtered = menuItems.filter(item => {
-    const matchCat = activeCategory ? item.category === activeCategory : true;
+    const matchCat = activeCategory === 'Aksiyalar' 
+      ? (item.discount_percent > 0 || item.old_price)
+      : (activeCategory ? item.category === activeCategory : true);
     const q = searchQuery.toLowerCase();
     const matchSearch = !searchQuery ||
       item.name.toLowerCase().includes(q) ||
@@ -71,9 +73,16 @@ const MenuSection = ({ menuItems, categories, activeCategory, searchQuery, addTo
                 )}
 
                 <div className="mt-auto flex items-center justify-between pt-2">
-                  <span className="text-[15px] sm:text-[17px] font-bold text-[#A79277] leading-none tracking-tight">
-                    {formatNumber(displayPrice)} <span className="text-[12px] font-medium text-[#A79277]/70">so'm{hasVariants ? 'dan' : ''}</span>
-                  </span>
+                  <div className="flex flex-col">
+                    {item.old_price && (
+                      <span className="text-[12px] font-medium text-[#A79277]/50 line-through">
+                        {formatNumber(hasVariants ? Math.min(...(item.variants || []).map(v => Number(v.old_price) || Number(item.old_price))) : item.old_price)} so'm
+                      </span>
+                    )}
+                    <span className="text-[15px] sm:text-[17px] font-bold text-[#A79277] leading-none tracking-tight">
+                      {formatNumber(displayPrice)} <span className="text-[12px] font-medium text-[#A79277]/70">so'm{hasVariants ? 'dan' : ''}</span>
+                    </span>
+                  </div>
 
                   {qty === 0 ? (
                     <button

@@ -299,6 +299,29 @@ describe('🔑 Auth Routes', () => {
     expect(res.statusCode).toBe(400);
   });
 
+  it('POST /api/auth/client/register → 400 with password shorter than 6 chars', async () => {
+    const res = await request(app).post('/api/auth/client/register').send({
+      name: 'Test',
+      email: 'test@example.com',
+      password: '123'
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toMatch(/6 ta belgidan/i);
+  });
+
+  it('DELETE /api/auth/client/account → 401 without token', async () => {
+    const res = await request(app).delete('/api/auth/client/account');
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('DELETE /api/auth/client/account → 200 with client token (Google Play Account Deletion)', async () => {
+    const res = await request(app)
+      .delete('/api/auth/client/account')
+      .set('Authorization', `Bearer ${clientToken}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
   it('POST /api/auth/client/login → 400 without credentials', async () => {
     const res = await request(app).post('/api/auth/client/login').send({});
     expect(res.statusCode).toBe(400);
@@ -334,10 +357,28 @@ describe('📊 Analytics (Staff only)', () => {
   });
 });
 
-describe('🌐 Public Endpoints', () => {
-  it('GET /api/categories → 200', async () => {
+describe('🌐 Public & Protected Endpoints', () => {
+  it('GET /api/categories → 200 (public)', async () => {
     const res = await request(app).get('/api/categories');
     expect(res.statusCode).toBe(200);
+  });
+
+  it('POST /api/categories → 401 without token', async () => {
+    const res = await request(app).post('/api/categories').send({ name: 'Desserts' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('POST /api/categories → 403 with client token', async () => {
+    const res = await request(app)
+      .post('/api/categories')
+      .set('Authorization', `Bearer ${clientToken}`)
+      .send({ name: 'Desserts' });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('DELETE /api/categories/:id → 401 without token', async () => {
+    const res = await request(app).delete('/api/categories/1');
+    expect(res.statusCode).toBe(401);
   });
 
   it('DELETE /api/categories/:id → 200 with admin token', async () => {
@@ -348,13 +389,31 @@ describe('🌐 Public Endpoints', () => {
     expect(res.body).toEqual({ success: true });
   });
 
-  it('GET /api/banners → 200', async () => {
+  it('GET /api/banners → 200 (public)', async () => {
     const res = await request(app).get('/api/banners');
     expect(res.statusCode).toBe(200);
   });
 
-  it('GET /api/settings → 200', async () => {
+  it('POST /api/banners → 401 without token', async () => {
+    const res = await request(app).post('/api/banners').send({ title: 'Special Promo' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('GET /api/settings → 200 (public)', async () => {
     const res = await request(app).get('/api/settings');
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('PUT /api/settings → 401 without token', async () => {
+    const res = await request(app).put('/api/settings').send({ min_order: 20000 });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('PUT /api/settings → 200 with admin token', async () => {
+    const res = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ min_order: 20000 });
     expect(res.statusCode).toBe(200);
   });
 

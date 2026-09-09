@@ -67,6 +67,11 @@ const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, la
         </View>
         <View style={styles.productFooter}>
           <View>
+            {item.old_price ? (
+              <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: TEXT_SECONDARY, marginBottom: -2 }}>
+                {formatNumber(hasVariants ? Math.min(...variants.map(v => Number(v.old_price) || Number(item.old_price || 0))) : item.old_price)} so'm
+              </Text>
+            ) : null}
             <Text style={styles.productPrice}>{formatNumber(displayPrice)}</Text>
             <Text style={styles.productPriceSuffix}>so'm{hasVariants ? 'dan' : ''}</Text>
           </View>
@@ -130,7 +135,26 @@ export default function CatalogScreen({ route }) {
           api.get('/menu'),
           api.get('/categories')
         ]);
-        setMenuItems(menuRes.data.filter(item => item.available));
+        setMenuItems(menuRes.data.filter(item => item.available).map(item => {
+          const discount = Number(item.discount_percent) || 0;
+          if (discount > 0) {
+            item.old_price = Number(item.price);
+            item.price = Math.round(Number(item.price) * (1 - discount / 100));
+            
+            if (item.variants) {
+              let variants = typeof item.variants === 'string' ? JSON.parse(item.variants) : item.variants;
+              if (Array.isArray(variants)) {
+                variants = variants.map(v => {
+                  v.old_price = Number(v.price);
+                  v.price = Math.round(Number(v.price) * (1 - discount / 100));
+                  return v;
+                });
+                item.variants = JSON.stringify(variants);
+              }
+            }
+          }
+          return item;
+        }));
         setCategories(catRes.data.filter(cat => cat.available));
       } catch (error) {
         console.error("Error fetching catalog data:", error);
@@ -146,6 +170,16 @@ export default function CatalogScreen({ route }) {
       setActiveCategory(route.params.category);
     }
   }, [route.params?.category]);
+
+  // Agar bannerdan maxsulot ID kelsa, maxsulotni ochish
+  useEffect(() => {
+    if (route.params?.productId && menuItems.length > 0) {
+      const product = menuItems.find(p => String(p.id) === String(route.params.productId));
+      if (product) {
+        setSelectedProduct(product);
+      }
+    }
+  }, [route.params?.productId, menuItems]);
 
   // Build a quick lookup map for cart quantities to avoid .find() on every render
   // For variant items, sum all variant quantities under same baseId
@@ -183,6 +217,9 @@ export default function CatalogScreen({ route }) {
         const nameRu = (item.name_ru || '').toLowerCase();
         return nameUz.includes(query) || nameRu.includes(query);
       });
+    }
+    if (activeCategory === 'Aksiyalar') {
+      return menuItems.filter(item => item.discount_percent > 0 || item.old_price);
     }
     if (activeCategory) {
       return menuItems.filter(item => item.category === activeCategory);
@@ -325,6 +362,14 @@ export default function CatalogScreen({ route }) {
             <Text style={styles.categoryChipEmoji}>🌟</Text>
             <Text style={[styles.categoryChipText, !activeCategory && styles.activeCategoryChipText]}>{t('all', 'Barchasi')}</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.categoryChip, activeCategory === 'Aksiyalar' && styles.activeCategoryChip]}
+            onPress={() => setActiveCategory(activeCategory === 'Aksiyalar' ? null : 'Aksiyalar')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.categoryChipEmoji}>🔥</Text>
+            <Text style={[styles.categoryChipText, activeCategory === 'Aksiyalar' && styles.activeCategoryChipText]}>{t('discounts', 'Aksiyalar')}</Text>
+          </TouchableOpacity>
           {categories.map(cat => (
             <TouchableOpacity
               key={cat.id}
@@ -384,127 +429,142 @@ export default function CatalogScreen({ route }) {
               const variants = parseVariants(selectedProduct);
               const hasVariants = variants.length > 0;
               const currentPrice = selectedVariant ? Number(selectedVariant.price) : Number(selectedProduct.price || 0);
+              const currentOldPrice = selectedVariant ? selectedVariant.old_price : selectedProduct.old_price;
               const currentId = selectedVariant ? `${selectedProduct.id}_${selectedVariant.name}` : selectedProduct.id;
               const currentQty = cartQuantityMap[currentId] || 0;
 
               return (
-                <ScrollView showsVerticalScrollIndicator={false}>
-                  <View style={styles.modalImageContainer}>
-                    {selectedProduct.emoji?.startsWith('http') ? (
-                      <ExpoImage
-                        source={{ uri: selectedProduct.emoji }}
-                        style={styles.modalProductImage}
-                        contentFit="cover"
-                        transition={200}
-                        cachePolicy="memory-disk"
-                      />
-                    ) : (
-                      <Text style={styles.modalEmoji}>{selectedProduct.emoji}</Text>
-                    )}
-                  </View>
-                  <View style={styles.modalBody}>
-                    <View style={styles.modalTitleRow}>
-                      <Text style={styles.modalTitle}>
-                        {i18n.language === 'ru' ? selectedProduct.name_ru || selectedProduct.name : selectedProduct.name}
-                      </Text>
-                      {selectedProduct.weight && (
-                        <View style={styles.modalWeightBadge}>
-                          <Text style={styles.modalWeightText}>{selectedProduct.weight}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={styles.modalDesc}>
-                      {i18n.language === 'ru'
-                        ? selectedProduct.description_ru || selectedProduct.description || "Вкусное блюдо, приготовлено из лучших ингредиентов."
-                        : selectedProduct.description || "Mazali taom, eng yaxshi masalliqlardan tayyorlangan."}
-                    </Text>
-
-                    {/* Variants Selector */}
-                    {hasVariants && (
-                      <View style={styles.variantsSection}>
-                        <Text style={styles.variantsSectionTitle}>Porsiya / O'lchamni tanlang:</Text>
-                        <View style={styles.variantsGrid}>
-                          {variants.map((v, idx) => {
-                            const isSelected = selectedVariant && selectedVariant.name === v.name;
-                            const vId = `${selectedProduct.id}_${v.name}`;
-                            const vQty = cartQuantityMap[vId] || 0;
-                            return (
-                              <TouchableOpacity
-                                key={idx}
-                                style={[styles.variantChip, isSelected && styles.variantChipActive]}
-                                onPress={() => setSelectedVariant(v)}
-                                activeOpacity={0.8}
-                              >
-                                {vQty > 0 && (
-                                  <View style={styles.variantQtyDot}>
-                                    <Text style={styles.variantQtyDotText}>{vQty}</Text>
-                                  </View>
-                                )}
-                                <Text style={[styles.variantChipName, isSelected && styles.variantChipNameActive]}>{v.name}</Text>
-                                <Text style={[styles.variantChipPrice, isSelected && styles.variantChipPriceActive]}>
-                                  {formatNumber(v.price)} so'm
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    )}
-
-                    <View style={styles.modalFooter}>
-                      <View>
-                        <Text style={styles.modalPrice}>{formatNumber(currentPrice)}</Text>
-                        <Text style={styles.modalPriceSuffix}>so'm{selectedVariant ? ` (${selectedVariant.name})` : ''}</Text>
-                      </View>
-                      {currentQty === 0 ? (
-                        <TouchableOpacity
-                          style={styles.modalAddBtn}
-                          onPress={() => {
-                            addToCart({
-                              ...selectedProduct,
-                              id: currentId,
-                              baseId: selectedProduct.id,
-                              name: selectedVariant
-                                ? `${selectedProduct.name} (${selectedVariant.name})`
-                                : selectedProduct.name,
-                              price: currentPrice,
-                              selectedVariant: selectedVariant ? selectedVariant.name : null,
-                            });
-                            if (!hasVariants) handleCloseModal();
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.modalAddText}>{t('add_to_cart', "Savatga qo'shish")}</Text>
-                        </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                    <View style={styles.modalImageContainer}>
+                      {selectedProduct.emoji?.startsWith('http') ? (
+                        <ExpoImage
+                          source={{ uri: selectedProduct.emoji }}
+                          style={styles.modalProductImage}
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
+                        />
                       ) : (
-                        <View style={styles.modalQtyControl}>
-                          <TouchableOpacity
-                            onPress={() => updateQuantity(currentId, -1)}
-                            style={styles.modalQtyBtn}
-                          >
-                            <Minus size={20} color={TEXT_SECONDARY} />
-                          </TouchableOpacity>
-                          <Text style={styles.modalQtyText}>{currentQty}</Text>
-                          <TouchableOpacity
-                            onPress={() => addToCart({
-                              ...selectedProduct,
-                              id: currentId,
-                              baseId: selectedProduct.id,
-                              name: selectedVariant
-                                ? `${selectedProduct.name} (${selectedVariant.name})`
-                                : selectedProduct.name,
-                              price: currentPrice,
-                              selectedVariant: selectedVariant ? selectedVariant.name : null,
-                            })}
-                            style={styles.modalQtyBtnPlus}
-                          >
-                            <Plus size={20} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        </View>
+                        <Text style={styles.modalEmoji}>{selectedProduct.emoji}</Text>
                       )}
                     </View>
+                    <View style={styles.modalBody}>
+                      <View style={styles.modalTitleRow}>
+                        <Text style={styles.modalTitle}>
+                          {i18n.language === 'ru' ? selectedProduct.name_ru || selectedProduct.name : selectedProduct.name}
+                        </Text>
+                        {selectedProduct.weight && (
+                          <Text style={styles.modalWeightText}>{selectedProduct.weight}</Text>
+                        )}
+                      </View>
+
+                      {/* Variants Selector */}
+                      {hasVariants && (
+                        <View style={styles.variantsSection}>
+                          <Text style={styles.variantsSectionTitle}>{t('choose_portion', "Porsiya / O'lchamni tanlang:")}</Text>
+                          <View style={styles.variantsGrid}>
+                            {variants.map((v, idx) => {
+                              const isSelected = selectedVariant && selectedVariant.name === v.name;
+                              const vId = `${selectedProduct.id}_${v.name}`;
+                              const vQty = cartQuantityMap[vId] || 0;
+                              return (
+                                <TouchableOpacity
+                                  key={idx}
+                                  style={[styles.variantChip, isSelected && styles.variantChipActive]}
+                                  onPress={() => setSelectedVariant(v)}
+                                  activeOpacity={0.8}
+                                >
+                                  {vQty > 0 && (
+                                    <View style={styles.variantQtyDot}>
+                                      <Text style={styles.variantQtyDotText}>{vQty}</Text>
+                                    </View>
+                                  )}
+                                  <Text style={[styles.variantChipName, isSelected && styles.variantChipNameActive]}>{v.name}</Text>
+                                  {v.old_price && (
+                                    <Text style={{ fontSize: 12, textDecorationLine: 'line-through', color: '#888', marginBottom: 2 }}>
+                                      {formatNumber(v.old_price)} so'm
+                                    </Text>
+                                  )}
+                                  <Text style={[styles.variantChipPrice, isSelected && styles.variantChipPriceActive]}>
+                                    {formatNumber(v.price)} so'm
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
+
+                      <View style={styles.modalSection}>
+                        <Text style={styles.modalSectionTitle}>{t('description', "Tarkibi")}</Text>
+                        <Text style={styles.modalDesc}>
+                          {i18n.language === 'ru'
+                            ? selectedProduct.description_ru || selectedProduct.description || "Вкусное блюдо, приготовлено из лучших ингредиентов."
+                            : selectedProduct.description || "Mazali taom, eng yaxshi masalliqlardan tayyorlangan."}
+                        </Text>
+                      </View>
+                    </View>
+                  </ScrollView>
+
+                  {/* Fixed Bottom Action Bar */}
+                  <View style={styles.modalBottomBar}>
+                    <View style={styles.modalPriceContainer}>
+                      {currentOldPrice ? (
+                        <Text style={styles.modalOldPrice}>
+                          {formatNumber(currentOldPrice)} so'm
+                        </Text>
+                      ) : null}
+                      <Text style={styles.modalPrice}>{formatNumber(currentPrice)} <Text style={styles.modalPriceSuffix}>so'm{selectedVariant ? ` (${selectedVariant.name})` : ''}</Text></Text>
+                    </View>
+                    {currentQty === 0 ? (
+                      <TouchableOpacity
+                        style={styles.modalAddBtn}
+                        onPress={() => {
+                          addToCart({
+                            ...selectedProduct,
+                            id: currentId,
+                            baseId: selectedProduct.id,
+                            name: selectedVariant
+                              ? `${selectedProduct.name} (${selectedVariant.name})`
+                              : selectedProduct.name,
+                            price: currentPrice,
+                            selectedVariant: selectedVariant ? selectedVariant.name : null,
+                          });
+                          if (!hasVariants) handleCloseModal();
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.modalAddText}>{t('add_to_cart', "Savatga qo'shish")}</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.modalQtyControl}>
+                        <TouchableOpacity
+                          onPress={() => updateQuantity(currentId, -1)}
+                          style={styles.modalQtyBtn}
+                        >
+                          <Minus size={22} color="#000" />
+                        </TouchableOpacity>
+                        <Text style={styles.modalQtyText}>{currentQty}</Text>
+                        <TouchableOpacity
+                          onPress={() => addToCart({
+                            ...selectedProduct,
+                            id: currentId,
+                            baseId: selectedProduct.id,
+                            name: selectedVariant
+                              ? `${selectedProduct.name} (${selectedVariant.name})`
+                              : selectedProduct.name,
+                            price: currentPrice,
+                            selectedVariant: selectedVariant ? selectedVariant.name : null,
+                          })}
+                          style={styles.modalQtyBtnPlus}
+                        >
+                          <Plus size={22} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
-                </ScrollView>
+                </View>
               );
             })()}
           </View>
@@ -593,73 +653,81 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)' },
   modalContent: {
-    backgroundColor: DARK_CARD, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 40,
-    shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 25,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)'
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    height: '88%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 25,
   },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#444444', borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 8 },
+  modalHandle: { width: 44, height: 5, backgroundColor: '#E0E0E0', borderRadius: 3, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
   closeButton: {
-    position: 'absolute', top: 18, right: 18, zIndex: 10, padding: 8,
-    backgroundColor: DARK_SURFACE, borderRadius: 18, borderWidth: 1, borderColor: BORDER_COLOR
+    position: 'absolute', top: 16, right: 16, zIndex: 10, padding: 8,
+    backgroundColor: '#F5F5F5', borderRadius: 20,
   },
   modalImageContainer: {
-    height: 210, backgroundColor: '#222222', justifyContent: 'center', alignItems: 'center',
-    marginHorizontal: 16, borderRadius: 20, marginTop: 8, overflow: 'hidden',
-    borderWidth: 1, borderColor: BORDER_COLOR
+    height: 320, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
+    width: '100%', overflow: 'hidden',
   },
-  modalProductImage: { width: '100%', height: 210, resizeMode: 'cover' },
-  modalEmoji: { fontSize: 96 },
-  modalBody: { padding: 22 },
-  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: TEXT_PRIMARY, flex: 1, letterSpacing: -0.3, marginRight: 8 },
-  modalWeightBadge: {
-    backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 8, borderWidth: 1, borderColor: BORDER_COLOR
+  modalProductImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  modalEmoji: { fontSize: 120 },
+  modalBody: { padding: 24, paddingBottom: 40 },
+  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  modalTitle: { fontSize: 28, fontWeight: '900', color: '#111111', flex: 1, letterSpacing: -0.5, lineHeight: 34, marginRight: 12 },
+  modalWeightText: { fontSize: 16, fontWeight: '600', color: '#888888', marginTop: 6 },
+  
+  modalSection: { marginTop: 8 },
+  modalSectionTitle: { fontSize: 18, fontWeight: '800', color: '#111111', marginBottom: 10 },
+  modalDesc: { fontSize: 15, color: '#666666', lineHeight: 24, fontWeight: '500' },
+  
+  modalBottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingVertical: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    borderTopWidth: 1, borderTopColor: '#F0F0F0',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 10
   },
-  modalWeightText: { fontSize: 12, fontWeight: '700', color: TEXT_SECONDARY },
-  modalDesc: { fontSize: 14, color: TEXT_SECONDARY, lineHeight: 22, marginBottom: 22, fontWeight: '400' },
-  modalFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalPrice: { fontSize: 26, fontWeight: '900', color: ACCENT },
-  modalPriceSuffix: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
+  modalPriceContainer: { flex: 1 },
+  modalPrice: { fontSize: 26, fontWeight: '900', color: '#111111' },
+  modalPriceSuffix: { fontSize: 14, fontWeight: '700', color: '#111111' },
+  modalOldPrice: { fontSize: 14, textDecorationLine: 'line-through', color: '#888888', marginBottom: 2 },
+  
   modalAddBtn: {
-    backgroundColor: ACCENT, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 18,
-    shadowColor: ACCENT, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6
+    backgroundColor: ACCENT, paddingVertical: 16, paddingHorizontal: 32, borderRadius: 100,
+    shadowColor: ACCENT, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6
   },
-  modalAddText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
+  modalAddText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
   modalQtyControl: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: DARK_SURFACE,
-    borderRadius: 18, padding: 4, borderWidth: 1, borderColor: BORDER_COLOR
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5',
+    borderRadius: 100, padding: 6, width: 140, justifyContent: 'space-between'
   },
-  modalQtyBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#333333', justifyContent: 'center', alignItems: 'center' },
-  modalQtyBtnPlus: { width: 40, height: 40, borderRadius: 14, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center' },
-  modalQtyText: { marginHorizontal: 14, fontSize: 18, fontWeight: '900', color: TEXT_PRIMARY },
+  modalQtyBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+  modalQtyBtnPlus: { width: 44, height: 44, borderRadius: 22, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center', shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  modalQtyText: { fontSize: 20, fontWeight: '900', color: '#111111' },
 
   // Variants section
-  variantsSection: { marginBottom: 20 },
-  variantsSectionTitle: { fontSize: 13, fontWeight: '700', color: TEXT_SECONDARY, marginBottom: 12, letterSpacing: 0.2 },
-  variantsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  variantsSection: { marginBottom: 24 },
+  variantsSectionTitle: { fontSize: 15, fontWeight: '800', color: '#111111', marginBottom: 12 },
+  variantsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   variantChip: {
     position: 'relative',
-    paddingVertical: 10, paddingHorizontal: 14,
-    backgroundColor: DARK_SURFACE, borderRadius: 14,
-    borderWidth: 1.5, borderColor: BORDER_COLOR,
-    minWidth: 80, alignItems: 'flex-start',
-    marginRight: 8, marginBottom: 8,
+    paddingVertical: 12, paddingHorizontal: 16,
+    backgroundColor: '#F9F9F9', borderRadius: 16,
+    borderWidth: 1.5, borderColor: '#EAEAEA',
+    minWidth: 90, alignItems: 'flex-start',
+    marginRight: 10, marginBottom: 10,
   },
   variantChipActive: {
-    backgroundColor: 'rgba(255,71,71,0.15)', borderColor: ACCENT,
+    backgroundColor: '#FFF5F5', borderColor: ACCENT,
   },
-  variantChipName: { fontSize: 14, fontWeight: '800', color: TEXT_PRIMARY, marginBottom: 2 },
+  variantChipName: { fontSize: 15, fontWeight: '800', color: '#111111', marginBottom: 4 },
   variantChipNameActive: { color: ACCENT },
-  variantChipPrice: { fontSize: 12, fontWeight: '700', color: TEXT_SECONDARY },
+  variantChipPrice: { fontSize: 13, fontWeight: '700', color: '#666666' },
   variantChipPriceActive: { color: ACCENT },
   variantQtyDot: {
-    position: 'absolute', top: -6, right: -6,
-    backgroundColor: '#2E7D32', borderRadius: 10, minWidth: 18, height: 18,
-    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
-    borderWidth: 1.5, borderColor: DARK_CARD,
+    position: 'absolute', top: -8, right: -8,
+    backgroundColor: '#2E7D32', borderRadius: 12, minWidth: 24, height: 24,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4,
+    borderWidth: 2, borderColor: '#FFFFFF',
   },
-  variantQtyDotText: { fontSize: 10, fontWeight: '900', color: '#FFFFFF' },
+  variantQtyDotText: { fontSize: 12, fontWeight: '900', color: '#FFFFFF' },
 
   // Variant qty badge on product card
   variantQtyBadge: {

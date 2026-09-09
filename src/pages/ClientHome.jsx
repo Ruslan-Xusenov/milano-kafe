@@ -62,7 +62,27 @@ const ClientHome = () => {
           apiFetch('/api/settings'),
           apiFetch('/api/config')
         ]);
-        if (menuRes.ok) setMenuItems((await menuRes.json()).filter(item => item.available));
+        if (menuRes.ok) {
+          const items = await menuRes.json();
+          setMenuItems(items.filter(item => item.available).map(item => {
+            const discount = Number(item.discount_percent) || 0;
+            if (discount > 0) {
+              item.old_price = Number(item.price);
+              item.price = Number(item.price) * (1 - discount / 100);
+              
+              if (item.variants) {
+                let variants = typeof item.variants === 'string' ? JSON.parse(item.variants) : item.variants;
+                variants = variants.map(v => {
+                  v.old_price = Number(v.price);
+                  v.price = Number(v.price) * (1 - discount / 100);
+                  return v;
+                });
+                item.variants = variants;
+              }
+            }
+            return item;
+          }));
+        }
         if (catRes.ok) setCategories((await catRes.json()).filter(cat => cat.available));
         if (banRes.ok) setBanners(await banRes.json());
         if (setRes.ok) setSettings(await setRes.json());
@@ -208,7 +228,13 @@ const ClientHome = () => {
                 onClick={() => setActiveCategory(null)}
                 className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-[14px] font-bold text-sm transition-all border ${activeCategory === null ? 'bg-[#F7E998]/50 text-[#FF4747] border-[#FF4747]' : 'bg-white border-[#A79277]/20 text-[#A79277]/70'}`}
               >
-                {t('all', 'Barchasi')}
+                🌟 {t('all', 'Barchasi')}
+              </button>
+              <button
+                onClick={() => setActiveCategory(activeCategory === 'Aksiyalar' ? null : 'Aksiyalar')}
+                className={`flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-[14px] font-bold text-sm transition-all border ${activeCategory === 'Aksiyalar' ? 'bg-[#F7E998]/50 text-[#FF4747] border-[#FF4747]' : 'bg-white border-[#A79277]/20 text-[#A79277]/70'}`}
+              >
+                🔥 {t('discounts', 'Aksiyalar')}
               </button>
               {categories.map((cat) => (
                 <button

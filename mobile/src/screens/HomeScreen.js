@@ -27,23 +27,25 @@ export default function HomeScreen({ navigation }) {
   const bannerRef = useRef(null);
   const { t, i18n } = useTranslation();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [banRes, catRes] = await Promise.all([
-          api.get('/banners'),
-          api.get('/categories')
-        ]);
-        setBanners(banRes.data);
-        setCategories(catRes.data.filter(cat => cat.available));
-      } catch (error) {
-        console.error("Error fetching home data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchData = async () => {
+        try {
+          const [banRes, catRes] = await Promise.all([
+            api.get('/banners'),
+            api.get('/categories')
+          ]);
+          setBanners(banRes.data);
+          setCategories(catRes.data.filter(cat => cat.available));
+        } catch (error) {
+          console.error("Error fetching home data:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
+    }, [])
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -121,8 +123,15 @@ export default function HomeScreen({ navigation }) {
                 style={styles.bannerCard}
                 onPress={() => {
                   const current = banners[currentBanner];
-                  if (current && current.link_type === 'category' && current.link_id) {
-                    navigation.navigate('Katalog', { category: current.link_id });
+                  if (!current) return;
+                  if (current.link_type === 'category' && current.link_id) {
+                    // Kategoriya ID bo'yicha nomini topamiz
+                    const cat = categories.find(c => String(c.id) === String(current.link_id));
+                    if (cat) {
+                      navigation.navigate('Katalog', { category: cat.name });
+                    }
+                  } else if (current.link_type === 'product' && current.link_id) {
+                    navigation.navigate('Katalog', { productId: current.link_id });
                   }
                 }}
                 activeOpacity={0.9}

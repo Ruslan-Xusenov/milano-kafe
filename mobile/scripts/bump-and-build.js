@@ -14,9 +14,9 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const BUILD_GRADLE = path.join(__dirname, '../android/app/build.gradle');
-const MOBILE_DIR   = path.join(__dirname, '..');
-const OUTPUT_DIR   = path.join(__dirname, '../..');   // CafeBot root
-const DESKTOP      = path.join(require('os').homedir(), 'Desktop');
+const MOBILE_DIR = path.join(__dirname, '..');
+const OUTPUT_DIR = path.join(__dirname, '../..');   // CafeBot root
+const DESKTOP = path.join(require('os').homedir(), 'Desktop');
 
 const buildType = (process.argv[2] || 'aab').toLowerCase();
 if (!['aab', 'apk'].includes(buildType)) {
@@ -61,21 +61,21 @@ const androidDir = path.join(MOBILE_DIR, 'android');
 
 let gradleTask, outputSrc, outputDst, desktopFile;
 if (buildType === 'aab') {
-  gradleTask  = 'bundleRelease';
-  outputSrc   = path.join(androidDir, 'app/build/outputs/bundle/release/app-release.aab');
-  outputDst   = path.join(MOBILE_DIR, 'app-release.aab');
+  gradleTask = 'bundleRelease';
+  outputSrc = path.join(androidDir, 'app/build/outputs/bundle/release/app-release.aab');
+  outputDst = path.join(MOBILE_DIR, 'app-release.aab');
   desktopFile = path.join(DESKTOP, `MilanoFoods-v${newName}.aab`);
 } else {
-  gradleTask  = 'assembleRelease';
-  outputSrc   = path.join(androidDir, 'app/build/outputs/apk/release/app-release.apk');
-  outputDst   = path.join(MOBILE_DIR, 'app-release.apk');
+  gradleTask = 'assembleRelease';
+  outputSrc = path.join(androidDir, 'app/build/outputs/apk/release/app-release.apk');
+  outputDst = path.join(MOBILE_DIR, 'app-release.apk');
   desktopFile = path.join(DESKTOP, `MilanoFoods-v${newName}.apk`);
 }
 
 console.log(`🔨  Gradle ${gradleTask} boshlandi...\n`);
 try {
   execSync(
-    `./gradlew ${gradleTask} -PreactNativeArchitectures=arm64-v8a`,
+    `./gradlew ${gradleTask} --no-daemon`,
     { cwd: androidDir, stdio: 'inherit' }
   );
 } catch (err) {
@@ -91,9 +91,14 @@ try {
 
 // ── 6. Copy output files ──────────────────────────────────────────────────────
 fs.copyFileSync(outputSrc, outputDst);
-fs.copyFileSync(outputSrc, desktopFile);
+try {
+  fs.copyFileSync(outputSrc, desktopFile);
+} catch (e) {
+  console.warn('⚠️  Desktop nusxasi yaratilmadi:', e.message);
+}
 
-const size = (fs.statSync(desktopFile).size / 1024 / 1024).toFixed(1);
+const targetForSize = fs.existsSync(desktopFile) ? desktopFile : outputDst;
+const size = (fs.statSync(targetForSize).size / 1024 / 1024).toFixed(1);
 console.log(`\n🎉  BUILD MUVAFFAQIYATLI!`);
 console.log(`    Versiya  : v${newName} (code: ${newCode})`);
 console.log(`    Hajm     : ${size} MB`);
