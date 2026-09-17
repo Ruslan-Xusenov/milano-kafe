@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Modal, TouchableWithoutFeedback } from 'react-native';
-import { Bell, ArrowLeft, BellOff, X, Gift } from 'lucide-react-native';
+import { Image as ExpoImage } from 'expo-image';
+import { ArrowLeft, BellOff, X, Gift } from 'lucide-react-native';
 import { api } from '../api';
+import { useTranslation } from 'react-i18next';
 
 const DARK_BG = '#1A1A1A';
 const DARK_CARD = '#252525';
@@ -14,6 +16,27 @@ export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedNotification, setSelectedNotification] = useState(null);
+  const { t } = useTranslation();
+
+  const getTranslatedTitle = (title) => {
+    if (!title) return title;
+    if (title.includes('Yangi buyurtma')) return t('notif_new_order', title);
+    if (title.includes('Tayyorlanmoqda')) return t('notif_preparing', title);
+    if (title.includes("Yo'lga chiqdi")) return t('notif_delivering', title);
+    if (title.includes('Yetkazib berildi')) return t('notif_completed', title);
+    if (title.includes("sovg'a")) return t('notif_gift', title);
+    return title;
+  };
+
+  const getTranslatedBody = (body) => {
+    if (!body) return body;
+    if (body.includes('Buyurtmangiz qabul qilindi')) return t('notif_body_new', body);
+    if (body.includes('tayyorlanmoqda')) return t('notif_body_prep', body);
+    if (body.includes("yo'lga chiqdi")) return t('notif_body_del', body);
+    if (body.includes('yetkazib berildi')) return t('notif_body_comp', body);
+    if (body.includes("sovg'a keldi")) return t('notif_body_gift', body);
+    return body;
+  };
 
   useEffect(() => {
     fetchNotifications();
@@ -50,11 +73,15 @@ export default function NotificationsScreen({ navigation }) {
         activeOpacity={0.7}
       >
         <View style={styles.iconContainer}>
-          <Bell size={24} color={isRead ? TEXT_SECONDARY : ACCENT} />
+          <ExpoImage 
+            source={require('../../assets/bell_loader.gif')} 
+            style={{ width: 26, height: 26, opacity: isRead ? 0.5 : 1 }} 
+            contentFit="contain" 
+          />
         </View>
         <View style={styles.content}>
-          <Text style={[styles.title, !isRead && styles.unreadTitle]}>{item.title}</Text>
-          <Text style={styles.body}>{item.body}</Text>
+          <Text style={[styles.title, !isRead && styles.unreadTitle]}>{getTranslatedTitle(item.title)}</Text>
+          <Text style={styles.body}>{getTranslatedBody(item.body)}</Text>
           <Text style={styles.time}>{new Date(item.created_at).toLocaleString()}</Text>
         </View>
         {!isRead && <View style={styles.unreadDot} />}
@@ -68,7 +95,7 @@ export default function NotificationsScreen({ navigation }) {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color={TEXT_PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bildirishnomalar</Text>
+        <Text style={styles.headerTitle}>{t('notifications', 'Bildirishnomalar')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -79,7 +106,7 @@ export default function NotificationsScreen({ navigation }) {
       ) : notifications.length === 0 ? (
         <View style={styles.center}>
           <BellOff size={64} color={TEXT_SECONDARY} />
-          <Text style={styles.emptyText}>Hozircha xabarlar yo'q</Text>
+          <Text style={styles.emptyText}>{t('no_notifications', "Hozircha xabarlar yo'q")}</Text>
         </View>
       ) : (
         <FlatList
@@ -105,23 +132,27 @@ export default function NotificationsScreen({ navigation }) {
                     {selectedNotification?.title?.toLowerCase().includes('sovg\'a') ? (
                       <Gift size={28} color={ACCENT} />
                     ) : (
-                      <Bell size={28} color={ACCENT} />
+                      <ExpoImage 
+                        source={require('../../assets/bell_loader.gif')} 
+                        style={{ width: 34, height: 34 }} 
+                        contentFit="contain" 
+                      />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => setSelectedNotification(null)} style={styles.closeBtn}>
                     <X size={24} color={TEXT_SECONDARY} />
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.modalTitle}>{selectedNotification?.title}</Text>
+                <Text style={styles.modalTitle}>{selectedNotification ? getTranslatedTitle(selectedNotification.title) : ''}</Text>
+                <Text style={styles.modalBody}>{selectedNotification ? getTranslatedBody(selectedNotification.body) : ''}</Text>
                 <Text style={styles.modalTime}>
                   {selectedNotification ? new Date(selectedNotification.created_at).toLocaleString() : ''}
                 </Text>
-                <Text style={styles.modalBody}>{selectedNotification?.body}</Text>
                 <TouchableOpacity 
-                  style={styles.modalButton}
+                  style={styles.modalCloseBtn}
                   onPress={() => setSelectedNotification(null)}
                 >
-                  <Text style={styles.modalButtonText}>Tushunarli</Text>
+                  <Text style={styles.modalCloseBtnText}>{t('close', 'Yopish')}</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>

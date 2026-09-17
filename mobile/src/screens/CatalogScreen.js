@@ -5,6 +5,8 @@ import { Plus, Minus, X, Search } from 'lucide-react-native';
 import { api } from '../api';
 import { CartContext } from '../context/CartContext';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getOptimizedImageUri, ImageSize } from '../utils/imageOptimizer';
 
 const DARK_BG = '#1A1A1A';
 const DARK_CARD = '#252525';
@@ -33,6 +35,7 @@ const parseVariants = (item) => {
 
 // Memoized Product Card - only re-renders when its own props change
 const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, lang }) => {
+  const { t, i18n } = useTranslation();
   const variants = parseVariants(item);
   const hasVariants = variants.length > 0;
   const displayPrice = hasVariants
@@ -42,13 +45,15 @@ const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, la
   return (
     <TouchableOpacity style={styles.productCard} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.productImageContainer}>
-        {item.emoji?.startsWith('http') ? (
+        {item.emoji?.startsWith('http') || item.emoji?.startsWith('/uploads') ? (
           <ExpoImage
-            source={{ uri: item.emoji }}
+            source={{ uri: getOptimizedImageUri(item.emoji, ImageSize.THUMBNAIL) }}
             style={styles.productImage}
             contentFit="cover"
-            transition={150}
+            transition={100}
             cachePolicy="memory-disk"
+            recyclingKey={`product-${item.id}`}
+            placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
           />
         ) : (
           <Text style={styles.productEmoji}>{item.emoji}</Text>
@@ -69,11 +74,11 @@ const ProductCard = React.memo(({ item, qty, onPress, onAdd, onMinus, onPlus, la
           <View>
             {item.old_price ? (
               <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: TEXT_SECONDARY, marginBottom: -2 }}>
-                {formatNumber(hasVariants ? Math.min(...variants.map(v => Number(v.old_price) || Number(item.old_price || 0))) : item.old_price)} so'm
+                {formatNumber(hasVariants ? Math.min(...variants.map(v => Number(v.old_price) || Number(item.old_price || 0))) : item.old_price)} {t('currency', "so'm")}
               </Text>
             ) : null}
             <Text style={styles.productPrice}>{formatNumber(displayPrice)}</Text>
-            <Text style={styles.productPriceSuffix}>so'm{hasVariants ? 'dan' : ''}</Text>
+            <Text style={styles.productPriceSuffix}>{t('currency', "so'm")}{hasVariants ? (i18n.language === 'ru' ? '+' : 'dan') : ''}</Text>
           </View>
           {qty === 0 ? (
             <TouchableOpacity
@@ -125,6 +130,7 @@ export default function CatalogScreen({ route }) {
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   const { cartItems, addToCart, removeFromCart, updateQuantity } = useContext(CartContext);
 
@@ -377,13 +383,14 @@ export default function CatalogScreen({ route }) {
               onPress={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
               activeOpacity={0.8}
             >
-              {cat.emoji?.startsWith('http') ? (
+              {cat.emoji?.startsWith('http') || cat.emoji?.startsWith('/uploads') ? (
                 <ExpoImage
-                  source={{ uri: cat.emoji }}
+                  source={{ uri: getOptimizedImageUri(cat.emoji, ImageSize.CHIP) }}
                   style={styles.categoryChipImage}
                   contentFit="cover"
-                  transition={150}
+                  transition={100}
                   cachePolicy="memory-disk"
+                  recyclingKey={`cat-chip-${cat.id}`}
                 />
               ) : (
                 <Text style={styles.categoryChipEmoji}>{cat.emoji}</Text>
@@ -434,12 +441,12 @@ export default function CatalogScreen({ route }) {
               const currentQty = cartQuantityMap[currentId] || 0;
 
               return (
-                <View style={{ flex: 1 }}>
+                <View style={{ flexShrink: 1 }}>
                   <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 120 }}>
                     <View style={styles.modalImageContainer}>
-                      {selectedProduct.emoji?.startsWith('http') ? (
+                      {selectedProduct.emoji?.startsWith('http') || selectedProduct.emoji?.startsWith('/uploads') ? (
                         <ExpoImage
-                          source={{ uri: selectedProduct.emoji }}
+                          source={{ uri: getOptimizedImageUri(selectedProduct.emoji, ImageSize.DETAIL) }}
                           style={styles.modalProductImage}
                           contentFit="cover"
                           transition={200}
@@ -450,14 +457,17 @@ export default function CatalogScreen({ route }) {
                       )}
                     </View>
                     <View style={styles.modalBody}>
-                      <View style={styles.modalTitleRow}>
-                        <Text style={styles.modalTitle}>
-                          {i18n.language === 'ru' ? selectedProduct.name_ru || selectedProduct.name : selectedProduct.name}
+                      <Text style={styles.modalTitle}>
+                        {i18n.language === 'ru' ? selectedProduct.name_ru || selectedProduct.name : selectedProduct.name}
+                      </Text>
+
+                      {(selectedProduct.description || selectedProduct.description_ru) ? (
+                        <Text style={styles.modalDesc}>
+                          {i18n.language === 'ru'
+                            ? selectedProduct.description_ru || selectedProduct.description
+                            : selectedProduct.description || selectedProduct.description_ru}
                         </Text>
-                        {selectedProduct.weight && (
-                          <Text style={styles.modalWeightText}>{selectedProduct.weight}</Text>
-                        )}
-                      </View>
+                      ) : null}
 
                       {/* Variants Selector */}
                       {hasVariants && (
@@ -482,12 +492,12 @@ export default function CatalogScreen({ route }) {
                                   )}
                                   <Text style={[styles.variantChipName, isSelected && styles.variantChipNameActive]}>{v.name}</Text>
                                   {v.old_price && (
-                                    <Text style={{ fontSize: 12, textDecorationLine: 'line-through', color: '#888', marginBottom: 2 }}>
-                                      {formatNumber(v.old_price)} so'm
+                                    <Text style={{ fontSize: 12, textDecorationLine: 'line-through', color: '#666', marginBottom: 2 }}>
+                                      {formatNumber(v.old_price)} {t('currency', "so'm")}
                                     </Text>
                                   )}
                                   <Text style={[styles.variantChipPrice, isSelected && styles.variantChipPriceActive]}>
-                                    {formatNumber(v.price)} so'm
+                                    {formatNumber(v.price)} {t('currency', "so'm")}
                                   </Text>
                                 </TouchableOpacity>
                               );
@@ -496,26 +506,77 @@ export default function CatalogScreen({ route }) {
                         </View>
                       )}
 
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalSectionTitle}>{t('description', "Tarkibi")}</Text>
-                        <Text style={styles.modalDesc}>
-                          {i18n.language === 'ru'
-                            ? selectedProduct.description_ru || selectedProduct.description || "Вкусное блюдо, приготовлено из лучших ингредиентов."
-                            : selectedProduct.description || "Mazali taom, eng yaxshi masalliqlardan tayyorlangan."}
-                        </Text>
-                      </View>
+                      {/* Same category related products */}
+                      {(() => {
+                        const related = menuItems.filter(
+                          item => item.category === selectedProduct.category && item.id !== selectedProduct.id
+                        ).slice(0, 10);
+                        if (related.length === 0) return null;
+                        return (
+                          <View style={styles.relatedSection}>
+                            <Text style={styles.modalSectionTitle}>
+                              {t('more_in_category', 'Shu kategoriyadan yana')}
+                            </Text>
+                            <ScrollView
+                              horizontal
+                              showsHorizontalScrollIndicator={false}
+                              contentContainerStyle={styles.relatedScrollContent}
+                            >
+                              {related.map(rItem => {
+                                const rVariants = parseVariants(rItem);
+                                const rPrice = rVariants.length > 0
+                                  ? Math.min(...rVariants.map(v => Number(v.price)))
+                                  : Number(rItem.price || 0);
+                                return (
+                                  <TouchableOpacity
+                                    key={rItem.id}
+                                    style={styles.relatedCard}
+                                    activeOpacity={0.85}
+                                    onPress={() => {
+                                      setSelectedProduct(rItem);
+                                      const rv = parseVariants(rItem);
+                                      setSelectedVariant(rv.length > 0 ? rv[0] : null);
+                                    }}
+                                  >
+                                    <View style={styles.relatedImageWrap}>
+                                      {rItem.emoji?.startsWith('http') || rItem.emoji?.startsWith('/uploads') ? (
+                                        <ExpoImage
+                                          source={{ uri: getOptimizedImageUri(rItem.emoji, ImageSize.THUMBNAIL) }}
+                                          style={styles.relatedImage}
+                                          contentFit="cover"
+                                          cachePolicy="memory-disk"
+                                          transition={100}
+                                          recyclingKey={`related-${rItem.id}`}
+                                        />
+                                      ) : (
+                                        <Text style={{ fontSize: 36 }}>{rItem.emoji}</Text>
+                                      )}
+                                    </View>
+                                    <View style={styles.relatedInfo}>
+                                      <Text style={styles.relatedName} numberOfLines={2}>
+                                        {i18n.language === 'ru' ? rItem.name_ru || rItem.name : rItem.name}
+                                      </Text>
+                                      <Text style={styles.relatedPrice}>{formatNumber(rPrice)} {t('currency', "so'm")}</Text>
+                                    </View>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </ScrollView>
+                          </View>
+                        );
+                      })()}
                     </View>
                   </ScrollView>
 
                   {/* Fixed Bottom Action Bar */}
-                  <View style={styles.modalBottomBar}>
+                  <View style={[styles.modalBottomBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
                     <View style={styles.modalPriceContainer}>
                       {currentOldPrice ? (
                         <Text style={styles.modalOldPrice}>
-                          {formatNumber(currentOldPrice)} so'm
+                          {formatNumber(currentOldPrice)} {t('currency', "so'm")}
                         </Text>
                       ) : null}
-                      <Text style={styles.modalPrice}>{formatNumber(currentPrice)} <Text style={styles.modalPriceSuffix}>so'm{selectedVariant ? ` (${selectedVariant.name})` : ''}</Text></Text>
+                      <Text style={styles.modalPrice}>{formatNumber(currentPrice)} <Text style={styles.modalPriceSuffix}>{t('currency', "so'm")}{selectedVariant ? ` (${selectedVariant.name})` : ''}</Text></Text>
                     </View>
                     {currentQty === 0 ? (
                       <TouchableOpacity
@@ -543,7 +604,7 @@ export default function CatalogScreen({ route }) {
                           onPress={() => updateQuantity(currentId, -1)}
                           style={styles.modalQtyBtn}
                         >
-                          <Minus size={22} color="#000" />
+                          <Minus size={22} color="#FFF" />
                         </TouchableOpacity>
                         <Text style={styles.modalQtyText}>{currentQty}</Text>
                         <TouchableOpacity
@@ -651,75 +712,107 @@ const styles = StyleSheet.create({
   qtyTextInline: { marginHorizontal: 8, fontSize: 14, fontWeight: '800', color: TEXT_PRIMARY },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.82)' },
   modalContent: {
-    backgroundColor: '#FFFFFF', borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    height: '88%',
-    shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 25,
+    backgroundColor: '#1C1C1C', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    maxHeight: '92%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.5, shadowRadius: 24, elevation: 30,
   },
-  modalHandle: { width: 44, height: 5, backgroundColor: '#E0E0E0', borderRadius: 3, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+  modalHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 4 },
   closeButton: {
-    position: 'absolute', top: 16, right: 16, zIndex: 10, padding: 8,
-    backgroundColor: '#F5F5F5', borderRadius: 20,
+    position: 'absolute', top: 14, right: 14, zIndex: 10, padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 20,
   },
   modalImageContainer: {
-    height: 320, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
+    height: 280, backgroundColor: '#2A2A2A', justifyContent: 'center', alignItems: 'center',
     width: '100%', overflow: 'hidden',
   },
   modalProductImage: { width: '100%', height: '100%', resizeMode: 'cover' },
-  modalEmoji: { fontSize: 120 },
-  modalBody: { padding: 24, paddingBottom: 40 },
-  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
-  modalTitle: { fontSize: 28, fontWeight: '900', color: '#111111', flex: 1, letterSpacing: -0.5, lineHeight: 34, marginRight: 12 },
-  modalWeightText: { fontSize: 16, fontWeight: '600', color: '#888888', marginTop: 6 },
-  
-  modalSection: { marginTop: 8 },
-  modalSectionTitle: { fontSize: 18, fontWeight: '800', color: '#111111', marginBottom: 10 },
-  modalDesc: { fontSize: 15, color: '#666666', lineHeight: 24, fontWeight: '500' },
-  
+  modalEmoji: { fontSize: 110 },
+  modalBody: { padding: 20, paddingBottom: 40 },
+  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  modalTitle: { fontSize: 26, fontWeight: '900', color: '#FFFFFF', flex: 1, letterSpacing: -0.5, lineHeight: 32, marginRight: 12 },
+  modalWeightText: { fontSize: 14, fontWeight: '600', color: TEXT_SECONDARY, marginTop: 6 },
+
+  modalSection: { marginTop: 14 },
+  modalSectionTitle: { fontSize: 15, fontWeight: '800', color: TEXT_SECONDARY, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  modalDesc: { fontSize: 15, color: '#CCCCCC', lineHeight: 24, fontWeight: '400' },
+
+  ingredientBox: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+    borderWidth: 0,
+  },
+
+  relatedSection: { marginTop: 20, marginBottom: 8 },
+  relatedScrollContent: { paddingRight: 8 },
+  relatedCard: {
+    width: 130,
+    backgroundColor: '#252525',
+    borderRadius: 16,
+    marginRight: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  relatedImageWrap: {
+    height: 90,
+    backgroundColor: '#2A2A2A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  relatedImage: { width: '100%', height: '100%' },
+  relatedInfo: { padding: 8 },
+  relatedName: {
+    fontSize: 12, fontWeight: '700', color: '#FFFFFF',
+    lineHeight: 16, marginBottom: 4,
+  },
+  relatedPrice: { fontSize: 12, fontWeight: '800', color: ACCENT },
+
   modalBottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#FFFFFF', paddingHorizontal: 24, paddingVertical: 16, paddingBottom: Platform.OS === 'ios' ? 32 : 16,
-    borderTopWidth: 1, borderTopColor: '#F0F0F0',
+    backgroundColor: '#1C1C1C', paddingHorizontal: 20, paddingVertical: 14, paddingBottom: Platform.OS === 'ios' ? 30 : 14,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)',
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 10
   },
   modalPriceContainer: { flex: 1 },
-  modalPrice: { fontSize: 26, fontWeight: '900', color: '#111111' },
-  modalPriceSuffix: { fontSize: 14, fontWeight: '700', color: '#111111' },
-  modalOldPrice: { fontSize: 14, textDecorationLine: 'line-through', color: '#888888', marginBottom: 2 },
-  
+  modalPrice: { fontSize: 24, fontWeight: '900', color: '#FFFFFF' },
+  modalPriceSuffix: { fontSize: 13, fontWeight: '600', color: TEXT_SECONDARY },
+  modalOldPrice: { fontSize: 13, textDecorationLine: 'line-through', color: '#666666', marginBottom: 2 },
+
   modalAddBtn: {
-    backgroundColor: ACCENT, paddingVertical: 16, paddingHorizontal: 32, borderRadius: 100,
-    shadowColor: ACCENT, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6
+    backgroundColor: ACCENT, paddingVertical: 15, paddingHorizontal: 28, borderRadius: 100,
+    shadowColor: ACCENT, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6
   },
-  modalAddText: { fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
+  modalAddText: { fontSize: 15, fontWeight: '800', color: '#FFFFFF' },
   modalQtyControl: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5',
-    borderRadius: 100, padding: 6, width: 140, justifyContent: 'space-between'
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#2E2E2E',
+    borderRadius: 100, padding: 5, width: 130, justifyContent: 'space-between'
   },
-  modalQtyBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  modalQtyBtnPlus: { width: 44, height: 44, borderRadius: 22, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center', shadowColor: ACCENT, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  modalQtyText: { fontSize: 20, fontWeight: '900', color: '#111111' },
+  modalQtyBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#3A3A3A', justifyContent: 'center', alignItems: 'center' },
+  modalQtyBtnPlus: { width: 42, height: 42, borderRadius: 21, backgroundColor: ACCENT, justifyContent: 'center', alignItems: 'center' },
+  modalQtyText: { fontSize: 18, fontWeight: '900', color: '#FFFFFF' },
 
   // Variants section
-  variantsSection: { marginBottom: 24 },
-  variantsSectionTitle: { fontSize: 15, fontWeight: '800', color: '#111111', marginBottom: 12 },
+  variantsSection: { marginBottom: 20 },
+  variantsSectionTitle: { fontSize: 15, fontWeight: '800', color: TEXT_SECONDARY, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   variantsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   variantChip: {
     position: 'relative',
     paddingVertical: 12, paddingHorizontal: 16,
-    backgroundColor: '#F9F9F9', borderRadius: 16,
-    borderWidth: 1.5, borderColor: '#EAEAEA',
+    backgroundColor: '#252525', borderRadius: 16,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)',
     minWidth: 90, alignItems: 'flex-start',
     marginRight: 10, marginBottom: 10,
   },
   variantChipActive: {
-    backgroundColor: '#FFF5F5', borderColor: ACCENT,
+    backgroundColor: 'rgba(255,71,71,0.12)', borderColor: ACCENT,
   },
-  variantChipName: { fontSize: 15, fontWeight: '800', color: '#111111', marginBottom: 4 },
+  variantChipName: { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginBottom: 4 },
   variantChipNameActive: { color: ACCENT },
-  variantChipPrice: { fontSize: 13, fontWeight: '700', color: '#666666' },
+  variantChipPrice: { fontSize: 13, fontWeight: '700', color: TEXT_SECONDARY },
   variantChipPriceActive: { color: ACCENT },
   variantQtyDot: {
     position: 'absolute', top: -8, right: -8,

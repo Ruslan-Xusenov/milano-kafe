@@ -89,7 +89,7 @@ export default function MoreScreen() {
         {/* Footer info */}
         <View style={styles.footerCard}>
           <Text style={styles.footerCardTitle}>Milano Foods</Text>
-          <Text style={styles.footerCardSub}>© 2026 Milano Foods. Barcha huquqlar himoyalangan.</Text>
+          <Text style={styles.footerCardSub}>{t('all_rights_reserved', '© 2026 Milano Foods. Barcha huquqlar himoyalangan.')}</Text>
         </View>
 
       </ScrollView>

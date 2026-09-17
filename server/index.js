@@ -25,6 +25,7 @@ const authRouter       = require('./routes/auth');
 const notifRouter      = require('./routes/notifications');
 const analyticsRouter  = require('./routes/analytics');
 const uploadRouter     = require('./routes/upload');
+const marketingRouter  = require('./routes/marketing');
 const path             = require('path');
 
 // --- DB / Bot / Push ---
@@ -65,8 +66,15 @@ app.use(express.json({ limit: '100kb' }));
 
 // --- Static files ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
-  maxAge: '7d',
+  maxAge: '30d',
+  immutable: true,
+  etag: true,
+  lastModified: true,
 }));
+
+// --- Optimized image endpoint ---
+const imageOptimizer = require('./routes/imageOptimizer');
+app.use('/img', imageOptimizer);
 
 // ============================================================
 // --- Rate Limiting ---
@@ -335,9 +343,10 @@ app.use('/api/work-sessions', workSessionsBase);
 app.use('/api/notifications', requireAnyAuth, notifRouter);
 
 // ============================================================
-// --- ANALYTICS ---
+// --- ANALYTICS & MARKETING ---
 // ============================================================
 app.use('/api/analytics', requireStaff, analyticsRouter);
+app.use('/api/marketing', requireAdmin, marketingRouter);
 
 // ============================================================
 // --- STARTUP MIGRATION (idempotent) ---
@@ -375,6 +384,23 @@ async function runStartupMigrations() {
         resolve();
       }
     );
+  });
+
+  // App settings for forced update
+  await new Promise((resolve) => {
+    const query = `
+      INSERT INTO settings (setting_key, setting_value) 
+      VALUES 
+        ('android_min_version', '26'),
+        ('android_latest_version', '26'),
+        ('android_store_url', 'https://play.google.com/store/apps/details?id=milanofoods.ruslandev.uz')
+      ON CONFLICT (setting_key) DO NOTHING;
+    `;
+    db.run(query, [], (err) => {
+      if (err) console.warn('[migration] app version settings:', err.message);
+      else console.log('[migration] app version settings tayyor');
+      resolve();
+    });
   });
 
   // Performance indekslari — orders va notifications

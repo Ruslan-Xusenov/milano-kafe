@@ -6,6 +6,7 @@ import { Bell } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
+import { getOptimizedImageUri, ImageSize } from '../utils/imageOptimizer';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +25,11 @@ export default function HomeScreen({ navigation }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentBanner, setCurrentBanner] = useState(0);
+  
+  const [activeBanner, setActiveBanner] = useState(null);
+  const [giftTiers, setGiftTiers] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
+
   const bannerRef = useRef(null);
   const { t, i18n } = useTranslation();
 
@@ -31,12 +37,32 @@ export default function HomeScreen({ navigation }) {
     React.useCallback(() => {
       const fetchData = async () => {
         try {
-          const [banRes, catRes] = await Promise.all([
+          const [banRes, catRes, setRes, menuRes] = await Promise.all([
             api.get('/banners'),
-            api.get('/categories')
+            api.get('/categories'),
+            api.get('/settings').catch(() => ({ data: {} })),
+            api.get('/menu').catch(() => ({ data: [] }))
           ]);
-          setBanners(banRes.data);
-          setCategories(catRes.data.filter(cat => cat.available));
+          setBanners(banRes.data || []);
+          setCategories((catRes.data || []).filter(cat => cat.available));
+          setMenuItems(menuRes.data || []);
+          
+          if (setRes.data) {
+            try {
+              if (setRes.data.active_banner) {
+                setActiveBanner(JSON.parse(setRes.data.active_banner));
+              } else {
+                setActiveBanner(null);
+              }
+              if (setRes.data.gift_tiers) {
+                setGiftTiers(JSON.parse(setRes.data.gift_tiers));
+              } else {
+                setGiftTiers([]);
+              }
+            } catch (e) {
+              console.error("Error parsing settings JSON", e);
+            }
+          }
         } catch (error) {
           console.error("Error fetching home data:", error);
         } finally {
@@ -104,7 +130,11 @@ export default function HomeScreen({ navigation }) {
             style={styles.notificationBtn}
             onPress={() => navigation.navigate('Notifications')}
           >
-            <Bell size={24} color={TEXT_PRIMARY} />
+            <ExpoImage 
+              source={require('../../assets/bell_white.gif')} 
+              style={{ width: 26, height: 26 }} 
+              contentFit="contain" 
+            />
             {unreadCount > 0 && (
               <View style={styles.badgeContainer}>
                 <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -177,6 +207,87 @@ export default function HomeScreen({ navigation }) {
         </View>
       )}
 
+      {/* ACTIVE BANNER (from Broadcast) */}
+      {activeBanner && (() => {
+        const item = menuItems.find(i => i.id === activeBanner.productId);
+        if (!item) return null;
+        return (
+          <TouchableOpacity
+            style={[styles.bannerCard, { marginHorizontal: 16, marginBottom: 16, borderColor: 'rgba(255,200,0,0.3)' }]}
+            onPress={() => navigation.navigate('Katalog', { productId: item.id })}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#4A2A00', '#2A1A00']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.bannerGradient}
+            >
+              <View style={styles.bannerContent}>
+                <View style={[styles.bannerBadge, { backgroundColor: 'rgba(255,200,0,0.2)', borderColor: 'rgba(255,200,0,0.4)' }]}>
+                  <Text style={[styles.bannerBadgeText, { color: '#FFD700' }]}>MAXSUS TAKLIF</Text>
+                </View>
+                <Text style={styles.bannerTitle}>{item.name}</Text>
+                <Text style={styles.bannerSubtitle}>{activeBanner.messageText}</Text>
+                <View style={[styles.bannerBtn, { backgroundColor: '#FFD700' }]}>
+                  <Text style={[styles.bannerBtnText, { color: '#000' }]}>Buyurtma berish</Text>
+                </View>
+              </View>
+              <View style={styles.bannerEmojiContainer}>
+                <View style={[styles.bannerEmojiGlow, { backgroundColor: 'rgba(255,200,0,0.1)' }]} />
+                {item.emoji?.startsWith('http') || item.emoji?.startsWith('/uploads') ? (
+                  <ExpoImage
+                    source={{ uri: getOptimizedImageUri(item.emoji, ImageSize.BANNER) }}
+                    style={{ width: 80, height: 80, borderRadius: 40 }}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={100}
+                    recyclingKey={`home-popular-${item.id}`}
+                  />
+                ) : (
+                  <Text style={styles.bannerEmoji}>{item.emoji || '🎁'}</Text>
+                )}
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        );
+      })()}
+
+      {/* GIFT TIERS */}
+      {giftTiers.map((tier, index) => {
+        const items = tier.itemIds.map(id => menuItems.find(i => i.id === id)).filter(Boolean);
+        if (items.length === 0) return null;
+        
+        return (
+          <TouchableOpacity
+            key={`gift-${index}`}
+            style={[styles.bannerCard, { marginHorizontal: 16, marginBottom: 16, borderColor: 'rgba(255,165,0,0.3)' }]}
+            onPress={() => navigation.navigate('Katalog')}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#D97706', '#9A3412']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.bannerGradient}
+            >
+              <View style={styles.bannerContent}>
+                <View style={[styles.bannerBadge, { backgroundColor: 'rgba(255,255,255,0.2)', borderColor: 'rgba(255,255,255,0.4)' }]}>
+                  <Text style={[styles.bannerBadgeText, { color: '#FFF' }]}>SOVG'A</Text>
+                </View>
+                <Text style={styles.bannerTitle}>{tier.minSum.toLocaleString()} so'm</Text>
+                <Text style={styles.bannerSubtitle}>Xarid qiling va quyidagilardan birini bepul oling: {items.map(i => i.name).join(', ')}</Text>
+                <View style={[styles.bannerBtn, { backgroundColor: '#FFF' }]}>
+                  <Text style={[styles.bannerBtnText, { color: '#D97706' }]}>{t('go_to_catalog', "Katalogga o'tish")}</Text>
+                </View>
+              </View>
+              <View style={styles.bannerEmojiContainer}>
+                <View style={[styles.bannerEmojiGlow, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
+                <Text style={styles.bannerEmoji}>🎁</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        );
+      })}
+
       {/* Quick Categories */}
       {displayCategories.length > 0 && (
         <View style={styles.section}>
@@ -189,32 +300,35 @@ export default function HomeScreen({ navigation }) {
                 key={cat.id}
                 style={styles.categoryCard}
                 onPress={() => navigation.navigate('Katalog', { category: cat.name })}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
                 <LinearGradient
-                  colors={['#2E1A1A', '#251515']}
+                  colors={['#2A1010', '#1E0E0E']}
                   style={styles.categoryCardInner}
                 >
-                  <View style={styles.categoryTopRow}>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryBadgeText}>
-                        {i18n.language === 'ru' ? cat.name_ru || cat.name : cat.name}
-                      </Text>
-                    </View>
-                  </View>
+                  {/* Image centered */}
                   <View style={styles.categoryEmojiWrap}>
-                    {cat.emoji && cat.emoji.startsWith('http') ? (
+                    {cat.emoji && (cat.emoji.startsWith('http') || cat.emoji.startsWith('/uploads')) ? (
                       <ExpoImage
-                        source={{ uri: cat.emoji }}
+                        source={{ uri: getOptimizedImageUri(cat.emoji, ImageSize.CHIP) }}
                         style={styles.categoryImage}
                         contentFit="contain"
                         cachePolicy="memory-disk"
-                        transition={150}
+                        transition={200}
                       />
                     ) : (
                       <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
                     )}
                   </View>
+                  {/* Name at bottom with gradient */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(20,5,5,0.92)']}
+                    style={styles.categoryNameOverlay}
+                  >
+                    <Text style={styles.categoryNameText} numberOfLines={2}>
+                      {i18n.language === 'ru' ? cat.name_ru || cat.name : cat.name}
+                    </Text>
+                  </LinearGradient>
                 </LinearGradient>
               </TouchableOpacity>
             ))}
@@ -305,17 +419,44 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   categoryCard: {
     width: '48%', marginBottom: 14, borderRadius: 20, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(255,71,71,0.12)',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
+    borderWidth: 1, borderColor: 'rgba(255,71,71,0.18)',
+    shadowColor: ACCENT, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6
   },
-  categoryCardInner: { padding: 16, height: 140, justifyContent: 'space-between' },
-  categoryTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  categoryBadge: {
-    backgroundColor: 'rgba(255,71,71,0.15)', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,71,71,0.25)'
+  categoryCardInner: {
+    height: 170,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  categoryBadgeText: { fontSize: 13, fontWeight: '800', color: ACCENT },
-  categoryEmojiWrap: { alignSelf: 'flex-end' },
-  categoryEmoji: { fontSize: 44, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 8 },
-  categoryImage: { width: 44, height: 44 }
+  categoryEmojiWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 12,
+  },
+  categoryEmoji: {
+    fontSize: 64,
+    textShadowColor: 'rgba(255,71,71,0.3)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 12,
+  },
+  categoryImage: { width: 110, height: 110 },
+  categoryNameOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 22,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  categoryNameText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0.1,
+  },
 });

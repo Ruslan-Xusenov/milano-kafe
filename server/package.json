@@ -26,7 +26,8 @@
     "node-fetch": "^3.3.2",
     "node-telegram-bot-api": "^1.2.0",
     "node-thermal-printer": "^4.6.0",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
+    "sharp": "^0.32.6",
     "sqlite3": "^6.0.1",
     "uuid": "^9.0.1"
   },
