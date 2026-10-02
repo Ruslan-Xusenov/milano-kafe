@@ -1,9 +1,11 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api').default || require('node-telegram-bot-api');
 const tokenStore = require('./tokenStore');
+const fs = require('fs');
+const path = require('path');
 
 const token = process.env.BOT_TOKEN;
-const chatIds = process.env.CHAT_ID ? process.env.CHAT_ID.split(',').map(id => id.trim()).filter(Boolean) : [];
+let chatIds = process.env.CHAT_ID ? process.env.CHAT_ID.split(',').map(id => id.trim()).filter(Boolean) : [];
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -63,6 +65,83 @@ bot.on('message', (msg) => {
         ]
       }
     });
+  }
+
+  // Admin Broadcast (/admin)
+  const chatIdStr = msg.chat.id.toString();
+  if (chatIds.includes(chatIdStr)) {
+    if (!global.broadcastStates) global.broadcastStates = {};
+    
+    if (text === '/admin') {
+      return bot.sendMessage(msg.chat.id, "👨‍💻 *Admin Panel*\n\nQuyidagi tugmalardan birini tanlang:", {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "📈 Foydalanuvchilar soni", callback_data: "admin_users_count" }],
+            [{ text: "📢 Barchaga xabar yuborish", callback_data: "admin_broadcast" }],
+            [{ text: "👥 Adminlar ro'yxati", callback_data: "admin_list" }],
+            [{ text: "➕ Yangi admin qo'shish", callback_data: "admin_add" }],
+            [{ text: "🗑 Adminni o'chirish", callback_data: "admin_remove_prompt" }]
+          ]
+        }
+      });
+    }
+
+    if (global.broadcastStates[chatIdStr]) {
+      delete global.broadcastStates[chatIdStr];
+      const db = require('./db');
+      db.all('SELECT telegram_id FROM users WHERE telegram_id IS NOT NULL', [], (err, users) => {
+        if (err) return bot.sendMessage(msg.chat.id, "❌ Xatolik: " + err.message);
+        if (!users || users.length === 0) return bot.sendMessage(msg.chat.id, "Bazada foydalanuvchilar topilmadi.");
+        
+        let successCount = 0;
+        let failCount = 0;
+        bot.sendMessage(msg.chat.id, `🚀 Tarqatish boshlandi. Jami foydalanuvchilar: ${users.length} ta...`);
+        
+        users.forEach((user, index) => {
+          setTimeout(() => {
+            bot.copyMessage(user.telegram_id, msg.chat.id, msg.message_id)
+              .then(() => successCount++)
+              .catch(() => failCount++)
+              .finally(() => {
+                if (index === users.length - 1) {
+                  bot.sendMessage(msg.chat.id, `✅ Tarqatish tugadi!\n\n📤 Yetib bordi: ${successCount} ta\n❌ Xatolik (botni bloklaganlar): ${failCount} ta`);
+                }
+              });
+          }, index * 50); // limit speed
+        });
+      });
+      return;
+    }
+
+    if (global.addAdminStates && global.addAdminStates[chatIdStr]) {
+      delete global.addAdminStates[chatIdStr];
+      const newAdminId = text.trim();
+      if (!/^\d+$/.test(newAdminId)) {
+        return bot.sendMessage(msg.chat.id, "❌ Noto'g'ri ID format. Faqat raqamlardan iborat bo'lishi kerak.");
+      }
+      if (chatIds.includes(newAdminId)) {
+        return bot.sendMessage(msg.chat.id, "⚠️ Bu foydalanuvchi allaqachon admin.");
+      }
+      
+      chatIds.push(newAdminId);
+      
+      try {
+        const envPath = path.join(__dirname, '.env');
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        const chatIdsString = chatIds.join(', ');
+        if (envContent.includes('CHAT_ID=')) {
+          envContent = envContent.replace(/CHAT_ID=.*/g, `CHAT_ID=${chatIdsString}`);
+        } else {
+          envContent += `\nCHAT_ID=${chatIdsString}`;
+        }
+        fs.writeFileSync(envPath, envContent, 'utf8');
+        bot.sendMessage(msg.chat.id, `✅ Yangi admin muvaffaqiyatli qo'shildi! (ID: ${newAdminId})`);
+      } catch (err) {
+        bot.sendMessage(msg.chat.id, "❌ .env faylga yozishda xatolik yuz berdi: " + err.message);
+      }
+      return;
+    }
   }
   
   // Handle contact message
@@ -155,5 +234,80 @@ const sendSecurityAlertToUser = (telegram_id, { device, os, location, time }) =>
   bot.sendMessage(telegram_id, message, { parse_mode: 'Markdown' })
     .catch(err => console.error('[bot] Xavfsizlik xabarini yuborishda xato:', err.message));
 };
+
+bot.on('callback_query', (query) => {
+  const chatIdStr = query.message.chat.id.toString();
+  if (chatIds.includes(chatIdStr)) {
+    if (query.data === 'admin_users_count') {
+      const db = require('./db');
+      db.get('SELECT COUNT(*) as count FROM users', [], (err, row) => {
+        if (err) {
+          bot.sendMessage(query.message.chat.id, "❌ Xatolik yuz berdi: " + err.message);
+        } else {
+          bot.sendMessage(query.message.chat.id, `📊 Loyihada jami *${row.count}* ta foydalanuvchi bor.`, { parse_mode: 'Markdown' });
+        }
+        bot.answerCallbackQuery(query.id);
+      });
+    }
+
+    if (query.data === 'admin_broadcast') {
+      if (!global.broadcastStates) global.broadcastStates = {};
+      global.broadcastStates[chatIdStr] = true;
+      bot.sendMessage(query.message.chat.id, "📣 Barcha foydalanuvchilarga tarqatish uchun xabarni yuboring (rasm, video yoki oddiy matn):");
+      bot.answerCallbackQuery(query.id);
+    }
+    
+    if (query.data === 'admin_add') {
+      if (!global.addAdminStates) global.addAdminStates = {};
+      global.addAdminStates[chatIdStr] = true;
+      bot.sendMessage(query.message.chat.id, "➕ Yangi admin qilib tayinlanadigan foydalanuvchining Telegram ID raqamini yuboring:\n(Masalan: 123456789)");
+      bot.answerCallbackQuery(query.id);
+    }
+
+    if (query.data === 'admin_list') {
+      const listText = chatIds.length > 0 ? chatIds.map((id, index) => `${index + 1}. ${id}`).join('\n') : "Adminlar yo'q.";
+      bot.sendMessage(query.message.chat.id, `📋 *Adminlar ro'yxati:*\n\n${listText}`, { parse_mode: 'Markdown' });
+      bot.answerCallbackQuery(query.id);
+    }
+    
+    if (query.data === 'admin_remove_prompt') {
+      if (chatIds.length === 0) {
+        return bot.answerCallbackQuery(query.id, { text: "Adminlar ro'yxati bo'sh.", show_alert: true });
+      }
+      const keyboard = chatIds.map(id => ([{ text: `❌ ${id}`, callback_data: `admin_remove_${id}` }]));
+      bot.sendMessage(query.message.chat.id, "🗑 O'chirmoqchi bo'lgan adminni tanlang:", {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+      bot.answerCallbackQuery(query.id);
+    }
+
+    if (query.data.startsWith('admin_remove_')) {
+      const idToRemove = query.data.replace('admin_remove_', '');
+      const index = chatIds.indexOf(idToRemove);
+      if (index > -1) {
+        chatIds.splice(index, 1);
+        try {
+          const envPath = path.join(__dirname, '.env');
+          let envContent = fs.readFileSync(envPath, 'utf8');
+          const chatIdsString = chatIds.join(', ');
+          if (envContent.includes('CHAT_ID=')) {
+            envContent = envContent.replace(/CHAT_ID=.*/g, `CHAT_ID=${chatIdsString}`);
+          } else {
+            envContent += `\nCHAT_ID=${chatIdsString}`;
+          }
+          fs.writeFileSync(envPath, envContent, 'utf8');
+          bot.sendMessage(query.message.chat.id, `✅ Admin o'chirildi: ${idToRemove}`);
+        } catch (err) {
+          bot.sendMessage(query.message.chat.id, "❌ Xatolik yuz berdi: " + err.message);
+        }
+      } else {
+        bot.sendMessage(query.message.chat.id, "⚠️ Bu ID topilmadi.");
+      }
+      bot.answerCallbackQuery(query.id);
+    }
+  }
+});
 
 module.exports = { bot, sendOrderToTelegram, sendStatusUpdateToTelegram, sendSecurityAlertToUser };
