@@ -5,6 +5,8 @@ import { BarChart3, TrendingUp, Calendar, DollarSign, Download, CreditCard, Smar
 const Reports = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -19,7 +21,21 @@ const Reports = () => {
 
   if (loading) return <div>Yuklanmoqda...</div>;
 
-  const completedOrders = orders.filter(o => o.status === 'completed' || o.payment_method === 'sovga' || o.status === "Sovg'a yuborildi");
+  const allCompletedOrders = orders.filter(o => o.status === 'completed' || o.payment_method === 'sovga' || o.status === "Sovg'a yuborildi");
+  const completedOrders = allCompletedOrders.filter(o => {
+    const orderDate = new Date(o.created_at);
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      if (orderDate < start) return false;
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      if (orderDate > end) return false;
+    }
+    return true;
+  });
   
   // Sovg'alarni va pullik buyurtmalarni ajratish
   const isGift = (o) => o.payment_method === 'sovga' || o.status === "Sovg'a yuborildi";
@@ -65,11 +81,38 @@ const Reports = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800">Sotuvlar Hisoboti</h1>
-        <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
-          <Download className="w-5 h-5" /> Excel ga yuklash
-        </button>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Dan:</span>
+            <input 
+              type="date" 
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Gacha:</span>
+            <input 
+              type="date" 
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+          <button 
+            className="flex items-center gap-2 bg-gray-100 text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-200"
+            onClick={() => { setStartDate(''); setEndDate(''); }}
+            title="Tozalash"
+          >
+            Tozalash
+          </button>
+          <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
+            <Download className="w-5 h-5" /> Excel
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
